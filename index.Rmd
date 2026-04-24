@@ -14,4 +14,4 @@ description: "My personal research and study notes."
 
 # Preface {-}
 
-Here is the list of toopics.
+Here is the list of topics.

@@ -2,11 +2,961 @@
 
 ## Introduction
 
-Here we begin discussing the principles of system modelling.
+A robot is usually described using a **system model**.
+
+A system model is a mathematical description of how the robot’s state changes over time.
+
+The most common continuous-time form is
 
 \begin{equation}
-x_{k+1} = f_k (x_k, u_k, w_k)
-(\#eq:discrete-time-dynamics)
+\dot{x} = f(x,u),
+(\#eq:continuous-time-system)
 \end{equation}
 
-Where $x_k$ is the state.
+where \(x\) is the state of the system and \(u\) is the input applied to the system.
+
+The state \(x\) contains the variables needed to describe the robot. The input \(u\) represents the quantity we apply to the robot, such as a force, torque, thrust, or velocity command.
+
+The function \(f(x,u)\) is called the **dynamics**. It describes how the current state and input determine the rate of change of the state.
+
+For example, for a pendulum, the state can be the angle and angular velocity. For a mobile robot, the state can be the position and heading. For a quadrotor, the state can include position, velocity, orientation, and angular velocity.
+
+The main goal of system modelling is to write equations that describe how a robot or physical system moves.
+
+---
+
+## State, input, and dynamics
+
+A system model usually has three main parts: the state, the input, and the dynamics.
+
+The **state** is the set of variables used to describe the current condition of the system.
+
+The **input** is the quantity applied to the system.
+
+The **dynamics** describe how the state changes over time.
+
+A general continuous-time system is written as
+
+\begin{equation}
+\dot{x} = f(x,u).
+\end{equation}
+
+This equation says that the rate of change of the state depends on the current state and the input.
+
+For example, if \(x\) is the position of a robot, then \(\dot{x}\) is its velocity. If \(x\) contains both position and velocity, then \(\dot{x}\) contains velocity and acceleration.
+
+<div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
+
+**Example 1.1 (One-Dimensional Robot)**
+
+Consider a robot moving along a straight line.
+
+Let \(p\) be its position and \(v\) be its velocity.
+
+The state is
+
+\begin{equation}
+x =
+\begin{bmatrix}
+p \\
+v
+\end{bmatrix}.
+\end{equation}
+
+Suppose the input \(u\) is the acceleration of the robot. Then
+
+\begin{equation}
+\dot{p} = v,
+\end{equation}
+
+and
+
+\begin{equation}
+\dot{v} = u.
+\end{equation}
+
+Therefore, the system model is
+
+\begin{equation}
+\dot{x}
+=
+\begin{bmatrix}
+\dot{p} \\
+\dot{v}
+\end{bmatrix}
+=
+\begin{bmatrix}
+v \\
+u
+\end{bmatrix}.
+\end{equation}
+
+This model says that position changes according to velocity, and velocity changes according to the applied acceleration.
+
+</div>
+
+---
+
+## What is a dynamical system?
+
+A **dynamical system** is a system whose state changes over time.
+
+In robotics, most systems are dynamical systems because robots move. Their positions, velocities, angles, and angular velocities change with time.
+
+A continuous-time dynamical system is written as
+
+\begin{equation}
+\dot{x} = f(x,u).
+\end{equation}
+
+The function \(f(x,u)\) tells us how the state changes.
+
+If we know the current state \(x\) and the input \(u\), then the model tells us the instantaneous rate of change \(\dot{x}\).
+
+<div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
+
+**Example 1.2 (Pendulum as a Dynamical System)**
+
+Consider a simple pendulum.
+
+The pendulum angle is \(\theta\), and its angular velocity is \(\dot{\theta}\).
+
+The state is
+
+\begin{equation}
+x =
+\begin{bmatrix}
+\theta \\
+\dot{\theta}
+\end{bmatrix}.
+\end{equation}
+
+The input \(u\) is the torque applied to the pendulum.
+
+A common pendulum model is
+
+\begin{equation}
+\dot{x}
+=
+\begin{bmatrix}
+\dot{\theta} \\
+\dfrac{1}{ml^2}
+\left(
+u - b\dot{\theta} - mgl\sin\theta
+\right)
+\end{bmatrix}.
+\end{equation}
+
+The first state is the angle, so its derivative is angular velocity. The second state is angular velocity, so its derivative is angular acceleration.
+
+</div>
+
+---
+
+## State variables
+
+The state should contain enough information to predict how the system will move next.
+
+For a mechanical system, the state often contains position-like variables and velocity-like variables.
+
+For example, if the configuration is \(q\), then a common state is
+
+\begin{equation}
+x =
+\begin{bmatrix}
+q \\
+\dot{q}
+\end{bmatrix}.
+\end{equation}
+
+Here, \(q\) contains positions, angles, or orientations, and \(\dot{q}\) contains velocities or angular velocities.
+
+<div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
+
+**Example 1.3 (Robot Arm State)**
+
+Consider a two-link robot arm.
+
+Let \(q_1\) and \(q_2\) be the two joint angles.
+
+The configuration is
+
+\begin{equation}
+q =
+\begin{bmatrix}
+q_1 \\
+q_2
+\end{bmatrix}.
+\end{equation}
+
+The velocity is
+
+\begin{equation}
+\dot{q}
+=
+\begin{bmatrix}
+\dot{q}_1 \\
+\dot{q}_2
+\end{bmatrix}.
+\end{equation}
+
+The full state is
+
+\begin{equation}
+x =
+\begin{bmatrix}
+q_1 \\
+q_2 \\
+\dot{q}_1 \\
+\dot{q}_2
+\end{bmatrix}.
+\end{equation}
+
+This state describes both the position and motion of the robot arm.
+
+</div>
+
+---
+
+## Inputs
+
+The input is what is applied to the system.
+
+Depending on the robot, the input can be a force, torque, thrust, acceleration command, velocity command, or motor command.
+
+For example:
+
+\begin{equation}
+u = \text{force}
+\end{equation}
+
+for a cart,
+
+\begin{equation}
+u = \text{torque}
+\end{equation}
+
+for a pendulum or robot arm, and
+
+\begin{equation}
+u =
+\begin{bmatrix}
+T \\
+\tau_\phi \\
+\tau_\theta \\
+\tau_\psi
+\end{bmatrix}
+\end{equation}
+
+for a quadrotor model written in terms of total thrust and body torques.
+
+The input affects how the state changes.
+
+---
+
+## Linear systems
+
+A system is **linear** if its dynamics can be written as
+
+\begin{equation}
+\dot{x} = Ax + Bu.
+(\#eq:linear-system)
+\end{equation}
+
+Here, \(A\) and \(B\) are matrices.
+
+The matrix \(A\) describes how the state affects the rate of change of the state. The matrix \(B\) describes how the input affects the rate of change of the state.
+
+The important point is that the state and input appear linearly. There are no terms such as \(x^2\), \(\sin x\), \(\cos x\), or \(xu\).
+
+<div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
+
+**Example 1.4 (Linear Double Integrator)**
+
+Consider a point mass moving in one dimension.
+
+Let
+
+\begin{equation}
+x =
+\begin{bmatrix}
+p \\
+v
+\end{bmatrix},
+\end{equation}
+
+where \(p\) is position and \(v\) is velocity.
+
+Let the input \(u\) be acceleration.
+
+The dynamics are
+
+\begin{equation}
+\dot{p} = v,
+\end{equation}
+
+\begin{equation}
+\dot{v} = u.
+\end{equation}
+
+Therefore,
+
+\begin{equation}
+\dot{x}
+=
+\begin{bmatrix}
+0 & 1 \\
+0 & 0
+\end{bmatrix}x
++
+\begin{bmatrix}
+0 \\
+1
+\end{bmatrix}u.
+\end{equation}
+
+This system is linear because it has the form
+
+\begin{equation}
+\dot{x} = Ax + Bu.
+\end{equation}
+
+</div>
+
+---
+
+## Nonlinear systems
+
+A system is **nonlinear** if it cannot be written as
+
+\begin{equation}
+\dot{x} = Ax + Bu.
+\end{equation}
+
+A general nonlinear system is written as
+
+\begin{equation}
+\dot{x} = f(x,u).
+(\#eq:nonlinear-system)
+\end{equation}
+
+The function \(f(x,u)\) can contain nonlinear terms involving the state or input.
+
+Common nonlinear terms include
+
+\begin{equation}
+\sin x, \qquad \cos x, \qquad x^2, \qquad x_1x_2, \qquad xu, \qquad \|x\|x.
+\end{equation}
+
+Many robotic systems are nonlinear because they involve rotations, gravity, friction, contact, and aerodynamic effects.
+
+<div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
+
+**Example 1.5 (Nonlinear Pendulum)**
+
+Consider the pendulum model
+
+\begin{equation}
+\dot{x}
+=
+\begin{bmatrix}
+\dot{\theta} \\
+\dfrac{1}{ml^2}
+\left(
+u - b\dot{\theta} - mgl\sin\theta
+\right)
+\end{bmatrix}.
+\end{equation}
+
+This system is nonlinear because of the term \(\sin\theta\).
+
+If we define
+
+\begin{equation}
+x_1 = \theta,
+\qquad
+x_2 = \dot{\theta},
+\end{equation}
+
+then
+
+\begin{equation}
+\dot{x}
+=
+\begin{bmatrix}
+x_2 \\
+\dfrac{1}{ml^2}
+\left(
+u - bx_2 - mgl\sin x_1
+\right)
+\end{bmatrix}.
+\end{equation}
+
+The term \(\sin x_1\) prevents the system from being linear.
+
+</div>
+
+---
+
+## How to tell if a system is linear or nonlinear
+
+To check whether a system is linear, ask whether the dynamics can be written as
+
+\begin{equation}
+\dot{x} = Ax + Bu.
+\end{equation}
+
+If the answer is yes, the system is linear.
+
+If the dynamics contain nonlinear functions of the state or input, then the system is nonlinear.
+
+<div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
+
+**Example 1.6 (Checking Linearity)**
+
+Consider
+
+\begin{equation}
+\dot{x} = 3x + 2u.
+\end{equation}
+
+This is linear because it can be written as
+
+\begin{equation}
+\dot{x} = Ax + Bu,
+\end{equation}
+
+with
+
+\begin{equation}
+A = 3,
+\qquad
+B = 2.
+\end{equation}
+
+Now consider
+
+\begin{equation}
+\dot{x} = 3x^2 + 2u.
+\end{equation}
+
+This is nonlinear because of the \(x^2\) term.
+
+Now consider
+
+\begin{equation}
+\dot{x} = 3x + 2xu.
+\end{equation}
+
+This is nonlinear because the state and input are multiplied together.
+
+</div>
+
+---
+
+## Linearization
+
+Many robotic systems are nonlinear. However, near a specific operating point, a nonlinear system can often be approximated by a linear system.
+
+Suppose the nonlinear system is
+
+\begin{equation}
+\dot{x} = f(x,u).
+\end{equation}
+
+Let \((x^\star,u^\star)\) be an operating point.
+
+Define the perturbation variables
+
+\begin{equation}
+\delta x = x - x^\star,
+\qquad
+\delta u = u - u^\star.
+\end{equation}
+
+The linearized system is
+
+\begin{equation}
+\delta \dot{x} = A\delta x + B\delta u,
+\end{equation}
+
+where
+
+\begin{equation}
+A =
+\left.
+\frac{\partial f}{\partial x}
+\right|_{x^\star,u^\star},
+\qquad
+B =
+\left.
+\frac{\partial f}{\partial u}
+\right|_{x^\star,u^\star}.
+\end{equation}
+
+Linearization gives a local linear approximation of the nonlinear dynamics.
+
+<div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
+
+**Example 1.7 (Linearizing the Pendulum)**
+
+The pendulum dynamics are
+
+\begin{equation}
+\ddot{\theta}
+=
+\dfrac{1}{ml^2}
+\left(
+u - b\dot{\theta} - mgl\sin\theta
+\right).
+\end{equation}
+
+Near \(\theta = 0\), we use the approximation
+
+\begin{equation}
+\sin\theta \approx \theta.
+\end{equation}
+
+Then
+
+\begin{equation}
+\ddot{\theta}
+\approx
+\dfrac{1}{ml^2}
+\left(
+u - b\dot{\theta} - mgl\theta
+\right).
+\end{equation}
+
+Therefore,
+
+\begin{equation}
+\ddot{\theta}
+\approx
+-\dfrac{g}{l}\theta
+-\dfrac{b}{ml^2}\dot{\theta}
++
+\dfrac{1}{ml^2}u.
+\end{equation}
+
+Using
+
+\begin{equation}
+x =
+\begin{bmatrix}
+\theta \\
+\dot{\theta}
+\end{bmatrix},
+\end{equation}
+
+we get
+
+\begin{equation}
+\dot{x}
+=
+\begin{bmatrix}
+0 & 1 \\
+-\dfrac{g}{l} & -\dfrac{b}{ml^2}
+\end{bmatrix}x
++
+\begin{bmatrix}
+0 \\
+\dfrac{1}{ml^2}
+\end{bmatrix}u.
+\end{equation}
+
+This is the linearized pendulum model near \(\theta=0\).
+
+</div>
+
+---
+
+## Control-affine systems
+
+A common form in robotics is the **control-affine system**
+
+\begin{equation}
+\dot{x} = f(x) + g(x)u.
+(\#eq:control-affine-system)
+\end{equation}
+
+This is a special case of
+
+\begin{equation}
+\dot{x} = f(x,u).
+\end{equation}
+
+In a control-affine system, the input \(u\) appears linearly, but the state can still appear nonlinearly.
+
+The term \(f(x)\) describes the natural dynamics of the system. The term \(g(x)u\) describes how the input affects the system.
+
+<div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
+
+**Example 1.8 (Pendulum as a Control-Affine System)**
+
+Using
+
+\begin{equation}
+x_1 = \theta,
+\qquad
+x_2 = \dot{\theta},
+\end{equation}
+
+the pendulum dynamics can be written as
+
+\begin{equation}
+\dot{x}
+=
+\begin{bmatrix}
+x_2 \\
+-\dfrac{b}{ml^2}x_2 - \dfrac{g}{l}\sin x_1
+\end{bmatrix}
++
+\begin{bmatrix}
+0 \\
+\dfrac{1}{ml^2}
+\end{bmatrix}u.
+\end{equation}
+
+This has the form
+
+\begin{equation}
+\dot{x} = f(x) + g(x)u.
+\end{equation}
+
+The system is nonlinear because of \(\sin x_1\), but it is control-affine because \(u\) appears linearly.
+
+</div>
+
+---
+
+## Degrees of freedom
+
+The **degrees of freedom** describe the independent coordinates needed to describe the configuration of a mechanical system.
+
+For example, a pendulum has one degree of freedom because its configuration can be described by one angle:
+
+\begin{equation}
+q = \theta.
+\end{equation}
+
+A cart-pole has two degrees of freedom because its configuration is described by the cart position and pendulum angle:
+
+\begin{equation}
+q =
+\begin{bmatrix}
+p \\
+\theta
+\end{bmatrix}.
+\end{equation}
+
+A planar mobile robot has three configuration variables:
+
+\begin{equation}
+q =
+\begin{bmatrix}
+p_x \\
+p_y \\
+\theta
+\end{bmatrix}.
+\end{equation}
+
+The configuration variables are often denoted by \(q\). The full state usually includes both configuration and velocity:
+
+\begin{equation}
+x =
+\begin{bmatrix}
+q \\
+\dot{q}
+\end{bmatrix}.
+\end{equation}
+
+---
+
+## Fully actuated systems
+
+A system is **fully actuated** when it has enough independent inputs to directly actuate all of its degrees of freedom.
+
+For mechanical systems, this often means the number of independent inputs equals the number of configuration degrees of freedom.
+
+<div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
+
+**Example 1.9 (Fully Actuated Robot Arm)**
+
+Consider a two-link robot arm.
+
+The configuration is
+
+\begin{equation}
+q =
+\begin{bmatrix}
+q_1 \\
+q_2
+\end{bmatrix}.
+\end{equation}
+
+If there is one motor at each joint, then the input is
+
+\begin{equation}
+u =
+\begin{bmatrix}
+\tau_1 \\
+\tau_2
+\end{bmatrix}.
+\end{equation}
+
+The system has two degrees of freedom and two independent inputs.
+
+Therefore, this robot arm is fully actuated.
+
+</div>
+
+---
+
+## Underactuated systems
+
+A system is **underactuated** when it has fewer independent inputs than degrees of freedom.
+
+This means some directions of motion cannot be directly commanded. Instead, those directions must be controlled indirectly through the system dynamics.
+
+<div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
+
+**Example 1.10 (Cart-Pole System)**
+
+The cart-pole consists of a cart moving horizontally and a pendulum attached to the cart.
+
+The configuration is
+
+\begin{equation}
+q =
+\begin{bmatrix}
+p \\
+\theta
+\end{bmatrix},
+\end{equation}
+
+where \(p\) is the cart position and \(\theta\) is the pendulum angle.
+
+The input is the horizontal force applied to the cart:
+
+\begin{equation}
+u = F.
+\end{equation}
+
+The system has two degrees of freedom but only one control input.
+
+Therefore, the cart-pole is underactuated.
+
+The pendulum angle is not directly actuated. We cannot directly apply a torque to the pendulum. Instead, the pendulum is influenced indirectly by moving the cart.
+
+</div>
+
+---
+
+## Another underactuated example: quadrotor
+
+A quadrotor is also underactuated.
+
+Its configuration includes position and orientation:
+
+\begin{equation}
+q =
+\begin{bmatrix}
+p_x \\
+p_y \\
+p_z \\
+\phi \\
+\theta \\
+\psi
+\end{bmatrix}.
+\end{equation}
+
+This gives six configuration degrees of freedom.
+
+A common input representation is
+
+\begin{equation}
+u =
+\begin{bmatrix}
+T \\
+\tau_\phi \\
+\tau_\theta \\
+\tau_\psi
+\end{bmatrix},
+\end{equation}
+
+where \(T\) is total thrust and \(\tau_\phi,\tau_\theta,\tau_\psi\) are body torques.
+
+So the quadrotor has six configuration degrees of freedom but only four independent inputs.
+
+Therefore, it is underactuated.
+
+<div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
+
+**Example 1.11 (Why a Quadrotor is Underactuated)**
+
+A quadrotor cannot directly command arbitrary acceleration in all directions.
+
+The thrust mainly acts along the body vertical axis. To move sideways, the quadrotor must first tilt. After tilting, part of the thrust points sideways, which causes horizontal acceleration.
+
+So horizontal motion is controlled indirectly through attitude.
+
+This is why the quadrotor is underactuated.
+
+</div>
+
+---
+
+## Time-invariant and time-varying systems
+
+A system is **time-invariant** if the dynamics do not explicitly depend on time.
+
+For example,
+
+\begin{equation}
+\dot{x} = f(x,u)
+\end{equation}
+
+is time-invariant.
+
+A system is **time-varying** if the dynamics explicitly depend on time.
+
+For example,
+
+\begin{equation}
+\dot{x} = f(x,u,t)
+\end{equation}
+
+is time-varying.
+
+<div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
+
+**Example 1.12 (Time-Varying System)**
+
+Suppose a robot moves in an environment where the wind changes with time.
+
+A simple model could be
+
+\begin{equation}
+\dot{x} = f(x,u,t).
+\end{equation}
+
+The explicit dependence on \(t\) means the dynamics can change as time changes.
+
+Therefore, this is a time-varying system.
+
+</div>
+
+---
+
+## Disturbances and uncertainty
+
+So far, we have written the system model as
+
+\begin{equation}
+\dot{x} = f(x,u).
+\end{equation}
+
+This is the clean nominal model.
+
+In practice, robots may be affected by disturbances, modelling errors, or unknown parameters. Then we may write
+
+\begin{equation}
+\dot{x} = f(x,u,d),
+\end{equation}
+
+where \(d\) represents a disturbance or uncertainty.
+
+For example, \(d\) could represent wind acting on a quadrotor, unknown friction acting on a car, or unmodelled contact forces acting on a legged robot.
+
+We do not need to include \(d\) at the beginning. It is usually introduced after the nominal model is understood.
+
+---
+
+## Output models
+
+The state describes the internal variables of the system. The output describes what we measure or care about.
+
+An output model is written as
+
+\begin{equation}
+y = h(x,u).
+\end{equation}
+
+For example, a robot may have the state
+
+\begin{equation}
+x =
+\begin{bmatrix}
+p \\
+v
+\end{bmatrix},
+\end{equation}
+
+but the sensor may only measure position:
+
+\begin{equation}
+y = p.
+\end{equation}
+
+So the output does not always contain the full state.
+
+<div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
+
+**Example 1.13 (Position Measurement)**
+
+Consider a one-dimensional robot with state
+
+\begin{equation}
+x =
+\begin{bmatrix}
+p \\
+v
+\end{bmatrix}.
+\end{equation}
+
+If the sensor only measures position, then
+
+\begin{equation}
+y = p.
+\end{equation}
+
+This can be written as
+
+\begin{equation}
+y =
+\begin{bmatrix}
+1 & 0
+\end{bmatrix}x.
+\end{equation}
+
+The velocity is part of the state, but it is not directly measured.
+
+</div>
+
+---
+
+## Summary
+
+A robot is described using a system model.
+
+The system model describes how the robot’s state changes over time.
+
+The most common continuous-time model is
+
+\begin{equation}
+\dot{x} = f(x,u).
+\end{equation}
+
+The main ideas are:
+
+- The **state** \(x\) contains the variables needed to describe the robot.
+- The **input** \(u\) is what is applied to the robot.
+- The **dynamics** \(f(x,u)\) describe how the state changes.
+- A **linear system** has the form \(\dot{x}=Ax+Bu\).
+- A **nonlinear system** has the more general form \(\dot{x}=f(x,u)\).
+- A **fully actuated system** has enough inputs to directly actuate all degrees of freedom.
+- An **underactuated system** has fewer inputs than degrees of freedom.
+- Many robotic systems are nonlinear, underactuated, or both.
+
+System modelling is the process of writing equations that describe how a robot moves.
