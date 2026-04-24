@@ -1,5 +1,5 @@
 --- 
-title: "Kaleb Ben Naveed Notes"
+title: "Notes"
 author: "Kaleb Ben Naveed"
 date: "`r Sys.Date()`"
 site: bookdown::bookdown_site
@@ -14,4 +14,4 @@ description: "My personal research and study notes."
 
 # Preface {-}
 
-Welcome to my personal notes. Use the sidebar to navigate through different topics such as System Modelling.
+Here is the list of toopics.

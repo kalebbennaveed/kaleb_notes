@@ -1,4 +1,4 @@
-# System Modelling 1 {#system-modelling}
+# System Modelling {#system-modelling}
 
 ## Introduction
 
