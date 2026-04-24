@@ -1,0 +1,12 @@
+# System Modelling 1 {#system-modelling}
+
+## Introduction
+
+Here we begin discussing the principles of system modelling.
+
+\begin{equation}
+x_{k+1} = f_k (x_k, u_k, w_k)
+(\#eq:discrete-time-dynamics)
+\end{equation}
+
+Where $x_k$ is the state.
