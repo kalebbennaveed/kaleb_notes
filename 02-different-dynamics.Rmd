@@ -1,0 +1,619 @@
+# Different Dynamic Models {#different-dynamic-models}
+
+This section gives examples of common robot dynamics models. All of them can be written in the continuous-time form
+
+\begin{equation}
+\dot{x} = f(x,u),
+(\#eq:general-dynamics-model)
+\end{equation}
+
+where \(x\) is the state, \(u\) is the input, and \(f(x,u)\) describes how the state changes over time.
+
+---
+
+<div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
+
+## Example 1: Single Integrator
+
+The single integrator is one of the simplest robot models. The input directly controls the velocity of the robot.
+
+Consider a robot moving in the plane. The state is
+
+\begin{equation}
+x =
+\begin{bmatrix}
+p_x \\
+p_y
+\end{bmatrix}
+\in \mathbb{R}^2,
+\end{equation}
+
+where \(p_x\) and \(p_y\) are the position coordinates.
+
+The input is
+
+\begin{equation}
+u =
+\begin{bmatrix}
+u_x \\
+u_y
+\end{bmatrix}
+\in \mathbb{R}^2,
+\end{equation}
+
+where \(u_x\) and \(u_y\) are velocity commands.
+
+The dynamics are
+
+\begin{equation}
+\dot{p}_x = u_x,
+\qquad
+\dot{p}_y = u_y.
+\end{equation}
+
+Therefore,
+
+\begin{equation}
+\dot{x}
+=
+\begin{bmatrix}
+\dot{p}_x \\
+\dot{p}_y
+\end{bmatrix}
+=
+\begin{bmatrix}
+u_x \\
+u_y
+\end{bmatrix}
+=
+u.
+\end{equation}
+
+So the single integrator can be written as
+
+\begin{equation}
+\dot{x} = f(x,u) = u.
+\end{equation}
+
+This model says that the input directly specifies how the position changes.
+
+</div>
+
+---
+
+<div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
+
+## Example 2: Double Integrator
+
+The double integrator includes both position and velocity. The input controls acceleration.
+
+Consider a robot moving in the plane. The state is
+
+\begin{equation}
+x =
+\begin{bmatrix}
+p_x \\
+p_y \\
+v_x \\
+v_y
+\end{bmatrix}
+\in \mathbb{R}^4,
+\end{equation}
+
+where \(p_x,p_y\) are position coordinates and \(v_x,v_y\) are velocity components.
+
+The input is
+
+\begin{equation}
+u =
+\begin{bmatrix}
+a_x \\
+a_y
+\end{bmatrix}
+\in \mathbb{R}^2,
+\end{equation}
+
+where \(a_x,a_y\) are acceleration commands.
+
+The dynamics are
+
+\begin{equation}
+\dot{p}_x = v_x,
+\qquad
+\dot{p}_y = v_y,
+\end{equation}
+
+\begin{equation}
+\dot{v}_x = a_x,
+\qquad
+\dot{v}_y = a_y.
+\end{equation}
+
+Therefore,
+
+\begin{equation}
+\dot{x}
+=
+\begin{bmatrix}
+\dot{p}_x \\
+\dot{p}_y \\
+\dot{v}_x \\
+\dot{v}_y
+\end{bmatrix}
+=
+\begin{bmatrix}
+v_x \\
+v_y \\
+a_x \\
+a_y
+\end{bmatrix}.
+\end{equation}
+
+Since \(u_1 = a_x\) and \(u_2 = a_y\), we can write
+
+\begin{equation}
+\dot{x} = f(x,u)
+=
+\begin{bmatrix}
+v_x \\
+v_y \\
+u_1 \\
+u_2
+\end{bmatrix}.
+\end{equation}
+
+This model says that velocity changes position, and acceleration changes velocity.
+
+</div>
+
+---
+
+<div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
+
+## Example 3: Unicycle Model
+
+The unicycle model describes a planar robot that moves forward along its heading direction and rotates.
+
+The state is
+
+\begin{equation}
+x =
+\begin{bmatrix}
+p_x \\
+p_y \\
+\psi
+\end{bmatrix}
+\in \mathbb{R}^3,
+\end{equation}
+
+where \(p_x,p_y\) are the position coordinates and \(\psi\) is the heading angle.
+
+The input is
+
+\begin{equation}
+u =
+\begin{bmatrix}
+v \\
+\omega
+\end{bmatrix}
+\in \mathbb{R}^2,
+\end{equation}
+
+where \(v\) is the forward speed and \(\omega\) is the angular velocity.
+
+The dynamics are
+
+\begin{equation}
+\dot{p}_x = v\cos\psi,
+\end{equation}
+
+\begin{equation}
+\dot{p}_y = v\sin\psi,
+\end{equation}
+
+\begin{equation}
+\dot{\psi} = \omega.
+\end{equation}
+
+Therefore,
+
+\begin{equation}
+\dot{x}
+=
+\begin{bmatrix}
+v\cos\psi \\
+v\sin\psi \\
+\omega
+\end{bmatrix}.
+\end{equation}
+
+Since \(u_1 = v\) and \(u_2 = \omega\), we can write
+
+\begin{equation}
+\dot{x} = f(x,u)
+=
+\begin{bmatrix}
+u_1\cos x_3 \\
+u_1\sin x_3 \\
+u_2
+\end{bmatrix}.
+\end{equation}
+
+This model is nonlinear because of the terms \(\cos\psi\) and \(\sin\psi\).
+
+</div>
+
+---
+
+<div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
+
+## Example 4: 2D Dynamic Bicycle Model
+
+The 2D dynamic bicycle model is used to describe vehicle motion in the plane. Unlike the unicycle model, it includes body-frame velocities, yaw dynamics, steering, slip angles, and tire forces.
+
+The state is
+
+\begin{equation}
+x =
+\begin{bmatrix}
+p_x \\
+p_y \\
+\psi \\
+v_x \\
+v_y \\
+\omega \\
+\delta
+\end{bmatrix}
+\in \mathbb{R}^7,
+\end{equation}
+
+where \(p_x,p_y\) are global position, \(\psi\) is heading, \(v_x,v_y\) are body-frame longitudinal and lateral velocities, \(\omega\) is yaw rate, and \(\delta\) is steering angle.
+
+The input is
+
+\begin{equation}
+u =
+\begin{bmatrix}
+F_d \\
+F_b \\
+\dot{\delta}_{\mathrm{cmd}}
+\end{bmatrix}
+\in \mathbb{R}^3,
+\end{equation}
+
+where \(F_d\) is the drive force command, \(F_b\) is the braking force command, and \(\dot{\delta}_{\mathrm{cmd}}\) is the steering-rate command.
+
+### Global kinematics
+
+\begin{equation}
+\dot{p}_x = v_x\cos\psi - v_y\sin\psi,
+\end{equation}
+
+\begin{equation}
+\dot{p}_y = v_x\sin\psi + v_y\cos\psi,
+\end{equation}
+
+\begin{equation}
+\dot{\psi} = \omega.
+\end{equation}
+
+These equations convert body-frame velocity into global-frame motion.
+
+### Slip angles
+
+The front and rear slip angles are
+
+\begin{equation}
+\alpha_f
+=
+\delta
+-
+\tan^{-1}
+\left(
+\frac{l_f\omega + v_y}{v_x + \epsilon}
+\right),
+\end{equation}
+
+\begin{equation}
+\alpha_r
+=
+\tan^{-1}
+\left(
+\frac{l_r\omega - v_y}{v_x + \epsilon}
+\right).
+\end{equation}
+
+Here, \(l_f\) and \(l_r\) are the distances from the center of mass to the front and rear axles, and \(\epsilon\) is a small positive constant used to avoid division by zero.
+
+### Vertical loads
+
+The front and rear vertical loads are
+
+\begin{equation}
+F_{z,f}
+=
+\frac{mgl_r}{2l},
+\end{equation}
+
+\begin{equation}
+F_{z,r}
+=
+\frac{mgl_f}{2l},
+\end{equation}
+
+where
+
+\begin{equation}
+l = l_f + l_r.
+\end{equation}
+
+### Lateral tire forces
+
+Using a simplified Pacejka-style tire model,
+
+\begin{equation}
+F_{y,f}
+=
+\mu F_{z,f}
+\sin
+\left(
+C_f \tan^{-1}(B_f\alpha_f)
+\right),
+\end{equation}
+
+\begin{equation}
+F_{y,r}
+=
+\mu F_{z,r}
+\sin
+\left(
+C_r \tan^{-1}(B_r\alpha_r)
+\right).
+\end{equation}
+
+Here, \(\mu\) is the tire-road friction coefficient. In many autonomous racing problems, \(\mu\) may be uncertain or unknown.
+
+### Longitudinal forces
+
+\begin{equation}
+F_{x,f}
+=
+\frac{1}{2}k_dF_d
++
+\frac{1}{2}k_bF_b
+-
+\frac{1}{2}f_rmg\frac{l_r}{l},
+\end{equation}
+
+\begin{equation}
+F_{x,r}
+=
+\frac{1}{2}(1-k_d)F_d
++
+\frac{1}{2}(1-k_b)F_b
+-
+\frac{1}{2}f_rmg\frac{l_f}{l}.
+\end{equation}
+
+### Body-frame dynamics
+
+\begin{equation}
+\dot{v}_x
+=
+\frac{1}{m}
+\left(
+2F_{x,r}
++
+2F_{x,f}\cos\delta
+-
+2F_{y,f}\sin\delta
+\right)
+-
+\frac{1}{2}\rho AC_dv_x^2
++
+\omega v_y,
+\end{equation}
+
+\begin{equation}
+\dot{v}_y
+=
+\frac{1}{m}
+\left(
+2F_{y,r}
++
+2F_{y,f}\cos\delta
++
+2F_{x,f}\sin\delta
+\right)
+-
+\omega v_x,
+\end{equation}
+
+\begin{equation}
+\dot{\omega}
+=
+\frac{1}{J_z}
+\left(
+-2F_{y,r}l_r
++
+\left(
+2F_{y,f}\cos\delta
++
+2F_{x,f}\sin\delta
+\right)l_f
+\right),
+\end{equation}
+
+\begin{equation}
+\dot{\delta}
+=
+\dot{\delta}_{\mathrm{cmd}}.
+\end{equation}
+
+Therefore, the full model can be written as
+
+\begin{equation}
+\dot{x}
+=
+f(x,u)
+=
+\begin{bmatrix}
+v_x\cos\psi - v_y\sin\psi \\
+v_x\sin\psi + v_y\cos\psi \\
+\omega \\
+\dot{v}_x \\
+\dot{v}_y \\
+\dot{\omega} \\
+\dot{\delta}_{\mathrm{cmd}}
+\end{bmatrix}.
+\end{equation}
+
+This model is nonlinear because it contains trigonometric terms, slip-angle equations, tire-force nonlinearities, and products such as \(\omega v_y\) and \(\omega v_x\).
+
+</div>
+
+---
+
+<div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
+
+## Example 5: Quadrotor Dynamics
+
+A quadrotor is a rigid body moving in three-dimensional space. Its state includes position, velocity, attitude, and angular velocity.
+
+Let
+
+\begin{equation}
+p \in \mathbb{R}^3
+\end{equation}
+
+be the position of the center of mass in the inertial frame,
+
+\begin{equation}
+v \in \mathbb{R}^3
+\end{equation}
+
+be the velocity of the center of mass in the inertial frame,
+
+\begin{equation}
+R \in SO(3)
+\end{equation}
+
+be the rotation matrix from the body frame to the inertial frame, and
+
+\begin{equation}
+\Omega \in \mathbb{R}^3
+\end{equation}
+
+be the angular velocity expressed in the body frame.
+
+The state can be written as
+
+\begin{equation}
+x =
+(p,v,R,\Omega).
+\end{equation}
+
+The input is
+
+\begin{equation}
+u =
+\begin{bmatrix}
+f \\
+M
+\end{bmatrix},
+\end{equation}
+
+where \(f \in \mathbb{R}\) is the total thrust and \(M \in \mathbb{R}^3\) is the total body-frame moment.
+
+The quadrotor dynamics are
+
+\begin{equation}
+\dot{p} = v,
+\end{equation}
+
+\begin{equation}
+m\dot{v} = mge_3 - fRe_3,
+\end{equation}
+
+\begin{equation}
+\dot{R} = R\hat{\Omega},
+\end{equation}
+
+\begin{equation}
+J\dot{\Omega} + \Omega \times J\Omega = M.
+\end{equation}
+
+Equivalently,
+
+\begin{equation}
+\dot{v}
+=
+ge_3
+-
+\frac{f}{m}Re_3,
+\end{equation}
+
+and
+
+\begin{equation}
+\dot{\Omega}
+=
+J^{-1}
+\left(
+M - \Omega \times J\Omega
+\right).
+\end{equation}
+
+Therefore, the model can be written compactly as
+
+\begin{equation}
+\dot{x}
+=
+f(x,u),
+\end{equation}
+
+where
+
+\begin{equation}
+\dot{x}
+=
+\left(
+\dot{p},
+\dot{v},
+\dot{R},
+\dot{\Omega}
+\right)
+=
+\left(
+v,
+ge_3-\frac{f}{m}Re_3,
+R\hat{\Omega},
+J^{-1}(M-\Omega \times J\Omega)
+\right).
+\end{equation}
+
+Here, \(\hat{\Omega}\) is the skew-symmetric matrix satisfying
+
+\begin{equation}
+\hat{\Omega}a = \Omega \times a
+\end{equation}
+
+for any vector \(a \in \mathbb{R}^3\).
+
+This model is nonlinear because the attitude evolves on \(SO(3)\), the translational acceleration depends on \(Re_3\), and the rotational dynamics contain the gyroscopic term \(\Omega \times J\Omega\).
+
+</div>
+
+---
+
+## Summary
+
+All of the examples above can be written as
+
+\begin{equation}
+\dot{x} = f(x,u).
+\end{equation}
+
+The difference between the models is the choice of state \(x\), input \(u\), and dynamics \(f(x,u)\).
+
+The single integrator directly controls velocity. The double integrator controls acceleration. The unicycle model includes heading. The 2D dynamic bicycle model includes vehicle slip and tire forces. The quadrotor model includes three-dimensional translation and rigid-body rotation.
