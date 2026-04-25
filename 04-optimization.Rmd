@@ -5,41 +5,39 @@
 In optimization, we often solve problems of the form
 
 \begin{equation}
-\min_{x} \quad J(x)
+\begin{aligned}
+\min_x \quad & J(x).
+\end{aligned}
 \end{equation}
 
-where \(x\) is the decision variable and \(J(x)\) is the objective function.
-
-The goal is to find the value of \(x\) that makes \(J(x)\) as small as possible.
+Here, \(x\) is the decision variable and \(J(x)\) is the objective function. The goal is to find the value of \(x\) that makes \(J(x)\) as small as possible.
 
 The **epigraph form** rewrites this problem by introducing a new scalar variable \(z\). Instead of minimizing \(J(x)\) directly, we minimize \(z\), while forcing \(z\) to be an upper bound on \(J(x)\).
 
 The epigraph form is
 
 \begin{equation}
-\min_{x,z} \quad z
-\end{equation}
-
-subject to
-
-\begin{equation}
-J(x) \leq z.
+\begin{aligned}
+\min_{x,z}\quad & z \\
+\text{s.t.}\quad & J(x) \leq z.
+\end{aligned}
 \end{equation}
 
 So the original problem
 
 \begin{equation}
-\min_x J(x)
+\begin{aligned}
+\min_x \quad & J(x)
+\end{aligned}
 \end{equation}
 
 is rewritten as
 
 \begin{equation}
-\min_{x,z} \quad z
-\quad
-\text{s.t.}
-\quad
-J(x) \leq z.
+\begin{aligned}
+\min_{x,z}\quad & z \\
+\text{s.t.}\quad & J(x) \leq z.
+\end{aligned}
 \end{equation}
 
 The new variable \(z\) is not a penalty weight. It is not multiplied by the objective. It is simply an upper bound on the objective value.
@@ -53,24 +51,23 @@ The new variable \(z\) is not a penalty weight. It is not multiplied by the obje
 Consider the optimization problem
 
 \begin{equation}
-\min_x \quad x^2.
+\begin{aligned}
+\min_x \quad & x^2.
+\end{aligned}
 \end{equation}
 
 The epigraph form is
 
 \begin{equation}
-\min_{x,z} \quad z
-\end{equation}
-
-subject to
-
-\begin{equation}
-x^2 \leq z.
+\begin{aligned}
+\min_{x,z}\quad & z \\
+\text{s.t.}\quad & x^2 \leq z.
+\end{aligned}
 \end{equation}
 
 This says: choose \(x\) and \(z\), make \(z\) as small as possible, but require that \(z\) stays above \(x^2\).
 
-The optimal solution is still
+The optimal solution is
 
 \begin{equation}
 x^\star = 0,
@@ -100,7 +97,7 @@ For any fixed \(x\), the smallest valid value of \(z\) is
 z = J(x).
 \end{equation}
 
-So when we minimize \(z\), the optimizer will naturally push \(z\) down until it touches \(J(x)\).
+So when we minimize \(z\), the optimizer naturally pushes \(z\) down until it touches \(J(x)\).
 
 At the optimum,
 
@@ -128,13 +125,13 @@ J(x) \leq z
 \right\}.
 \end{equation}
 
-So the epigraph form means:
+The variable \(z\) represents height. The constraint \(J(x)\leq z\) says that the point \((x,z)\) must lie above the function. Minimizing \(z\) pushes this point as low as possible.
+
+So the epigraph problem can be understood as:
 
 \begin{equation}
-\text{Find the lowest point in the epigraph.}
+\text{Find the lowest point in the epigraph of } J.
 \end{equation}
-
-The variable \(z\) represents height. The constraint \(J(x)\leq z\) says that the point \((x,z)\) must lie above the function. Minimizing \(z\) pushes this point as low as possible.
 
 ---
 
@@ -145,19 +142,18 @@ The variable \(z\) represents height. The constraint \(J(x)\leq z\) says that th
 Consider
 
 \begin{equation}
-\min_x \quad |x|.
+\begin{aligned}
+\min_x \quad & |x|.
+\end{aligned}
 \end{equation}
 
 The epigraph form is
 
 \begin{equation}
-\min_{x,z} \quad z
-\end{equation}
-
-subject to
-
-\begin{equation}
-|x| \leq z.
+\begin{aligned}
+\min_{x,z}\quad & z \\
+\text{s.t.}\quad & |x| \leq z.
+\end{aligned}
 \end{equation}
 
 The constraint
@@ -172,20 +168,22 @@ is equivalent to
 -z \leq x \leq z.
 \end{equation}
 
-So we can write
-
-\begin{equation}
-\min_{x,z} \quad z
-\end{equation}
-
-subject to
+Equivalently, this can be written as two inequalities:
 
 \begin{equation}
 x \leq z,
+\qquad
+-x \leq z.
 \end{equation}
 
+Therefore, the epigraph form can be written as
+
 \begin{equation}
--x \leq z.
+\begin{aligned}
+\min_{x,z}\quad & z \\
+\text{s.t.}\quad & x \leq z, \\
+& -x \leq z.
+\end{aligned}
 \end{equation}
 
 This is useful because the nonsmooth objective \(|x|\) becomes a linear objective with linear constraints.
@@ -199,34 +197,25 @@ This is useful because the nonsmooth objective \(|x|\) becomes a linear objectiv
 Now consider a constrained optimization problem:
 
 \begin{equation}
-\min_x \quad J(x)
-\end{equation}
-
-subject to
-
-\begin{equation}
-h(x) \leq 0.
+\begin{aligned}
+\min_x \quad & J(x) \\
+\text{s.t.}\quad & h(x) \leq 0.
+\end{aligned}
 \end{equation}
 
 The epigraph form is
 
 \begin{equation}
-\min_{x,z} \quad z
-\end{equation}
-
-subject to
-
-\begin{equation}
-h(x) \leq 0,
-\end{equation}
-
-\begin{equation}
-J(x) \leq z.
+\begin{aligned}
+\min_{x,z}\quad & z \\
+\text{s.t.}\quad & h(x) \leq 0, \\
+& J(x) \leq z.
+\end{aligned}
 \end{equation}
 
 The original constraint \(h(x)\leq 0\) stays exactly the same.
 
-The only thing we changed is the objective. Instead of minimizing \(J(x)\), we minimize \(z\), and we add the constraint \(J(x)\leq z\).
+The only change is that the objective \(J(x)\) becomes an upper-bound constraint \(J(x)\leq z\), and the new objective is to minimize \(z\).
 
 ---
 
@@ -237,35 +226,35 @@ The only thing we changed is the objective. Instead of minimizing \(J(x)\), we m
 Consider
 
 \begin{equation}
-\min_x \quad x^2
+\begin{aligned}
+\min_x \quad & x^2 \\
+\text{s.t.}\quad & x \geq 1.
+\end{aligned}
 \end{equation}
 
-subject to
-
-\begin{equation}
-x \geq 1.
-\end{equation}
-
-We can write the constraint as
+We can rewrite the constraint as
 
 \begin{equation}
 1-x \leq 0.
 \end{equation}
 
+Therefore, the original problem is
+
+\begin{equation}
+\begin{aligned}
+\min_x \quad & x^2 \\
+\text{s.t.}\quad & 1-x \leq 0.
+\end{aligned}
+\end{equation}
+
 The epigraph form is
 
 \begin{equation}
-\min_{x,z} \quad z
-\end{equation}
-
-subject to
-
-\begin{equation}
-1-x \leq 0,
-\end{equation}
-
-\begin{equation}
-x^2 \leq z.
+\begin{aligned}
+\min_{x,z}\quad & z \\
+\text{s.t.}\quad & 1-x \leq 0, \\
+& x^2 \leq z.
+\end{aligned}
 \end{equation}
 
 The optimal solution is
@@ -282,41 +271,34 @@ Again, \(z^\star\) equals the optimal objective value.
 
 ---
 
-## Turning constraints into a maximum condition
+## Combining constraints using a maximum
 
 The epigraph form
 
 \begin{equation}
-\min_{x,z} \quad z
+\begin{aligned}
+\min_{x,z}\quad & z \\
+\text{s.t.}\quad & h(x) \leq 0, \\
+& J(x) \leq z
+\end{aligned}
 \end{equation}
 
-subject to
+can also be written using one maximum constraint:
 
 \begin{equation}
-h(x) \leq 0,
+\begin{aligned}
+\min_{x,z}\quad & z \\
+\text{s.t.}\quad & \max\{h(x),J(x)-z\} \leq 0.
+\end{aligned}
 \end{equation}
+
+This works because
 
 \begin{equation}
-J(x) \leq z
+\max\{h(x),J(x)-z\} \leq 0
 \end{equation}
 
-can also be written using one maximum constraint.
-
-Since both constraints must hold, we can combine them as
-
-\begin{equation}
-\max\{h(x), J(x)-z\} \leq 0.
-\end{equation}
-
-Why?
-
-The condition
-
-\begin{equation}
-\max\{h(x), J(x)-z\} \leq 0
-\end{equation}
-
-means both terms inside the max must be less than or equal to zero:
+means that both terms inside the maximum must be less than or equal to zero. Therefore,
 
 \begin{equation}
 h(x) \leq 0,
@@ -328,13 +310,13 @@ and
 J(x)-z \leq 0.
 \end{equation}
 
-The second condition is equivalent to
+The second inequality is equivalent to
 
 \begin{equation}
 J(x) \leq z.
 \end{equation}
 
-Therefore,
+So
 
 \begin{equation}
 h(x)\leq 0,
@@ -354,19 +336,16 @@ is equivalent to
 
 The epigraph form can also be viewed as an outer problem over \(z\) and an inner problem over \(x\).
 
-Start from
+Start with
 
 \begin{equation}
-\min_{x,z} \quad z
+\begin{aligned}
+\min_{x,z}\quad & z \\
+\text{s.t.}\quad & \max\{h(x),J(x)-z\} \leq 0.
+\end{aligned}
 \end{equation}
 
-subject to
-
-\begin{equation}
-\max\{h(x),J(x)-z\} \leq 0.
-\end{equation}
-
-For a fixed \(z\), define
+For a fixed value of \(z\), define
 
 \begin{equation}
 \phi(z)
@@ -375,52 +354,38 @@ For a fixed \(z\), define
 \max\{h(x),J(x)-z\}.
 \end{equation}
 
-Then the epigraph problem becomes
+Then the epigraph problem can be written as
 
 \begin{equation}
-\min_z \quad z
+\begin{aligned}
+\min_z\quad & z \\
+\text{s.t.}\quad & \phi(z) \leq 0.
+\end{aligned}
 \end{equation}
 
-subject to
+This gives two subproblems.
+
+The **inner problem** is
 
 \begin{equation}
-\phi(z) \leq 0.
-\end{equation}
-
-So we have two levels:
-
-\begin{equation}
-\text{Inner problem:}
-\qquad
 \phi(z)
 =
 \min_x
 \max\{h(x),J(x)-z\}.
 \end{equation}
 
-\begin{equation}
-\text{Outer problem:}
-\qquad
-\min_z z
-\quad
-\text{s.t.}
-\quad
-\phi(z)\leq 0.
-\end{equation}
+For a fixed proposed upper bound \(z\), the inner problem asks whether there exists an \(x\) that can satisfy both the original constraint and the objective upper-bound constraint.
 
-The inner problem asks:
+The **outer problem** is
 
 \begin{equation}
-\text{For this proposed upper bound } z,\text{ can I find an }x\text{ that satisfies everything?}
+\begin{aligned}
+\min_z\quad & z \\
+\text{s.t.}\quad & \phi(z) \leq 0.
+\end{aligned}
 \end{equation}
 
-The outer problem asks:
-
-\begin{equation}
-\text{What is the smallest upper bound }z\text{ that is feasible?}
-\end{equation}
-
-This is the form shown in the optimization block of your uploaded material. :contentReference[oaicite:0]{index=0}
+The outer problem asks for the smallest value of \(z\) for which the inner problem can satisfy the constraints.
 
 ---
 
@@ -431,27 +396,41 @@ This is the form shown in the optimization block of your uploaded material. :con
 Consider
 
 \begin{equation}
-\min_x \quad x^2
+\begin{aligned}
+\min_x \quad & x^2 \\
+\text{s.t.}\quad & x \geq 1.
+\end{aligned}
 \end{equation}
 
-subject to
-
-\begin{equation}
-x \geq 1.
-\end{equation}
-
-Write
+Write the constraint as
 
 \begin{equation}
 h(x)=1-x,
-\qquad
+\end{equation}
+
+and the objective as
+
+\begin{equation}
 J(x)=x^2.
 \end{equation}
 
-The epigraph max constraint is
+The epigraph form is
 
 \begin{equation}
-\max\{1-x,x^2-z\}\leq 0.
+\begin{aligned}
+\min_{x,z}\quad & z \\
+\text{s.t.}\quad & 1-x \leq 0, \\
+& x^2 \leq z.
+\end{aligned}
+\end{equation}
+
+Equivalently, using the maximum form,
+
+\begin{equation}
+\begin{aligned}
+\min_{x,z}\quad & z \\
+\text{s.t.}\quad & \max\{1-x,x^2-z\} \leq 0.
+\end{aligned}
 \end{equation}
 
 For a fixed \(z\), the inner problem is
@@ -463,7 +442,7 @@ For a fixed \(z\), the inner problem is
 \max\{1-x,x^2-z\}.
 \end{equation}
 
-If \(z<1\), then there is no feasible \(x\) satisfying both
+If \(z<1\), then no feasible \(x\) can satisfy both
 
 \begin{equation}
 x\geq 1
@@ -475,7 +454,7 @@ and
 x^2\leq z.
 \end{equation}
 
-So \(z<1\) is impossible.
+So \(z<1\) is infeasible.
 
 If \(z=1\), choosing \(x=1\) gives
 
@@ -509,7 +488,7 @@ x^\star=1.
 
 ---
 
-## Why \(z\) is added, not multiplied
+## Why \(z\) is subtracted, not multiplied
 
 A common confusion is why we write
 
@@ -535,7 +514,7 @@ J(x)-z\leq 0.
 
 That is why \(z\) appears by subtraction.
 
-It is not trying to scale the objective. It is trying to represent the statement:
+It is not trying to scale the objective. It is representing the statement
 
 \begin{equation}
 \text{objective value} \leq \text{upper bound}.
@@ -569,9 +548,9 @@ If yes, then \(z\) is feasible.
 
 If no, then \(z\) is infeasible.
 
-The optimal \(z^\star\) is the smallest feasible upper bound.
+The optimal value \(z^\star\) is the smallest feasible upper bound.
 
-This gives an important interpretation:
+This gives the interpretation
 
 \begin{equation}
 z^\star
@@ -587,27 +566,29 @@ The feasible set in \(z\) is monotonic.
 
 If a value \(z\) is feasible, then any larger value \(\bar{z}\geq z\) is also feasible.
 
-Why?
-
-If
+To see this, suppose there exists an \(x\) such that
 
 \begin{equation}
-J(x)\leq z
+h(x)\leq 0,
+\qquad
+J(x)\leq z.
 \end{equation}
 
-and
+If \(\bar{z}\geq z\), then
 
 \begin{equation}
-\bar{z}\geq z,
+J(x)\leq z \leq \bar{z}.
 \end{equation}
 
-then automatically
+Therefore, the same \(x\) also satisfies
 
 \begin{equation}
+h(x)\leq 0,
+\qquad
 J(x)\leq \bar{z}.
 \end{equation}
 
-So making \(z\) larger relaxes the upper-bound constraint.
+So if \(z\) is feasible, any larger \(\bar{z}\) is also feasible.
 
 This means the outer problem often has a threshold structure:
 
@@ -631,9 +612,7 @@ This is why epigraph forms are often convenient for one-dimensional search over 
 
 Epigraph form is especially important in convex optimization.
 
-A function \(J(x)\) is convex if and only if its epigraph is a convex set.
-
-That means
+A function \(J(x)\) is convex if and only if its epigraph is a convex set:
 
 \begin{equation}
 J(x) \text{ is convex}
@@ -644,27 +623,26 @@ J(x) \text{ is convex}
 \text{ is convex}.
 \end{equation}
 
-This is one of the most important properties of epigraphs.
+This means a convex objective can be converted into a linear objective with a convex constraint.
 
-It means that a convex objective can be converted into a linear objective with a convex constraint:
+The original problem
 
 \begin{equation}
-\min_x J(x)
+\begin{aligned}
+\min_x \quad & J(x)
+\end{aligned}
 \end{equation}
 
 becomes
 
 \begin{equation}
-\min_{x,z} z
+\begin{aligned}
+\min_{x,z}\quad & z \\
+\text{s.t.}\quad & J(x)\leq z.
+\end{aligned}
 \end{equation}
 
-subject to
-
-\begin{equation}
-J(x)\leq z.
-\end{equation}
-
-The objective \(z\) is linear, and the complexity is moved into the constraint.
+The objective \(z\) is linear, and the complexity of \(J(x)\) is moved into the constraint.
 
 ---
 
@@ -675,7 +653,9 @@ The objective \(z\) is linear, and the complexity is moved into the constraint.
 Suppose we want to minimize the maximum of several functions:
 
 \begin{equation}
-\min_x \quad \max\{f_1(x),f_2(x),f_3(x)\}.
+\begin{aligned}
+\min_x \quad & \max\{f_1(x),f_2(x),f_3(x)\}.
+\end{aligned}
 \end{equation}
 
 Introduce \(z\) as an upper bound on all three functions.
@@ -683,32 +663,31 @@ Introduce \(z\) as an upper bound on all three functions.
 The epigraph form is
 
 \begin{equation}
-\min_{x,z} \quad z
+\begin{aligned}
+\min_{x,z}\quad & z \\
+\text{s.t.}\quad & f_1(x)\leq z, \\
+& f_2(x)\leq z, \\
+& f_3(x)\leq z.
+\end{aligned}
 \end{equation}
 
-subject to
-
-\begin{equation}
-f_1(x)\leq z,
-\end{equation}
-
-\begin{equation}
-f_2(x)\leq z,
-\end{equation}
-
-\begin{equation}
-f_3(x)\leq z.
-\end{equation}
-
-This works because saying
+This works because
 
 \begin{equation}
 \max\{f_1(x),f_2(x),f_3(x)\}\leq z
 \end{equation}
 
-is the same as saying every function is below \(z\).
+is equivalent to
 
-This is useful because it replaces a max objective with multiple inequality constraints.
+\begin{equation}
+f_1(x)\leq z,
+\qquad
+f_2(x)\leq z,
+\qquad
+f_3(x)\leq z.
+\end{equation}
+
+So the max objective becomes multiple inequality constraints.
 
 </div>
 
@@ -716,27 +695,25 @@ This is useful because it replaces a max objective with multiple inequality cons
 
 ## Relation to minimax problems
 
-Epigraph form is often used when the objective has a maximum:
+Epigraph form is often used when the objective contains a maximum:
 
 \begin{equation}
-\min_x \max_i f_i(x).
+\begin{aligned}
+\min_x \quad & \max_i f_i(x).
+\end{aligned}
 \end{equation}
 
 The epigraph form is
 
 \begin{equation}
-\min_{x,z} z
+\begin{aligned}
+\min_{x,z}\quad & z \\
+\text{s.t.}\quad & f_i(x)\leq z,
+\qquad \forall i.
+\end{aligned}
 \end{equation}
 
-subject to
-
-\begin{equation}
-f_i(x)\leq z,
-\qquad
-\forall i.
-\end{equation}
-
-So instead of minimizing the worst-case value directly, we minimize an upper bound on all possible values.
+Instead of minimizing the worst-case value directly, we minimize an upper bound on all possible values.
 
 This is why epigraph form appears often in robust optimization, safety-constrained optimization, and multi-agent optimization.
 
@@ -747,11 +724,10 @@ This is why epigraph form appears often in robust optimization, safety-constrain
 For a constrained problem
 
 \begin{equation}
-\min_x J(x)
-\quad
-\text{s.t.}
-\quad
-h(x)\leq 0,
+\begin{aligned}
+\min_x \quad & J(x) \\
+\text{s.t.}\quad & h(x)\leq 0,
+\end{aligned}
 \end{equation}
 
 a Lagrangian method forms
@@ -764,35 +740,29 @@ J(x)+\lambda h(x),
 
 where \(\lambda\geq 0\) is a multiplier.
 
-Here, the constraint is added as a penalty-like term.
+Here, the constraint is added to the objective through a multiplier.
 
 By contrast, the epigraph form writes
 
 \begin{equation}
-\min_{x,z} z
-\end{equation}
-
-subject to
-
-\begin{equation}
-h(x)\leq 0,
-\end{equation}
-
-\begin{equation}
-J(x)\leq z.
+\begin{aligned}
+\min_{x,z}\quad & z \\
+\text{s.t.}\quad & h(x)\leq 0, \\
+& J(x)\leq z.
+\end{aligned}
 \end{equation}
 
 The key difference is:
 
 \begin{equation}
-\text{Lagrangian: constraint affects objective through a multiplier.}
+\text{Lagrangian method: constraints affect the objective through multipliers.}
 \end{equation}
 
 \begin{equation}
-\text{Epigraph: objective becomes an upper-bound constraint.}
+\text{Epigraph form: the objective becomes an upper-bound constraint.}
 \end{equation}
 
-The epigraph form does not multiply the objective or constraint by \(z\). It uses \(z\) as a target upper bound.
+The epigraph variable \(z\) does not multiply the objective or the constraint. It is a candidate upper bound on the objective value.
 
 ---
 
@@ -805,22 +775,18 @@ The epigraph form has the same optimal \(x^\star\) as the original problem.
 Original problem:
 
 \begin{equation}
-x^\star
-=
-\arg\min_x J(x).
+\begin{aligned}
+\min_x \quad & J(x).
+\end{aligned}
 \end{equation}
 
 Epigraph form:
 
 \begin{equation}
-(x^\star,z^\star)
-=
-\arg\min_{x,z}
-z
-\quad
-\text{s.t.}
-\quad
-J(x)\leq z.
+\begin{aligned}
+\min_{x,z}\quad & z \\
+\text{s.t.}\quad & J(x)\leq z.
+\end{aligned}
 \end{equation}
 
 At the optimum,
@@ -843,33 +809,33 @@ The new objective is simply
 \min z.
 \end{equation}
 
-### Property 3: Useful for max objectives
+### Property 3: Useful for maximum objectives
 
 A problem like
 
 \begin{equation}
-\min_x \max_i f_i(x)
+\begin{aligned}
+\min_x \quad & \max_i f_i(x)
+\end{aligned}
 \end{equation}
 
 becomes
 
 \begin{equation}
-\min_{x,z} z
-\quad
-\text{s.t.}
-\quad
-f_i(x)\leq z,
-\quad
-\forall i.
+\begin{aligned}
+\min_{x,z}\quad & z \\
+\text{s.t.}\quad & f_i(x)\leq z,
+\qquad \forall i.
+\end{aligned}
 \end{equation}
 
 ### Property 4: Preserves convexity
 
-If \(J(x)\) is convex and the constraints are convex, then the epigraph form is also convex.
+If \(J(x)\) is convex and the other constraints are convex, then the epigraph form is also convex.
 
 ### Property 5: Gives an upper-bound interpretation
 
-The variable \(z\) always has the meaning
+The variable \(z\) has the meaning
 
 \begin{equation}
 z = \text{candidate upper bound on the objective}.
@@ -912,39 +878,37 @@ So \(z\) is not a weight. It is an upper bound.
 The epigraph form rewrites
 
 \begin{equation}
-\min_x J(x)
+\begin{aligned}
+\min_x \quad & J(x)
+\end{aligned}
 \end{equation}
 
 as
 
 \begin{equation}
-\min_{x,z} z
-\quad
-\text{s.t.}
-\quad
-J(x)\leq z.
+\begin{aligned}
+\min_{x,z}\quad & z \\
+\text{s.t.}\quad & J(x)\leq z.
+\end{aligned}
 \end{equation}
 
 For constrained problems,
 
 \begin{equation}
-\min_x J(x)
-\quad
-\text{s.t.}
-\quad
-h(x)\leq 0
+\begin{aligned}
+\min_x \quad & J(x) \\
+\text{s.t.}\quad & h(x)\leq 0
+\end{aligned}
 \end{equation}
 
 becomes
 
 \begin{equation}
-\min_{x,z} z
-\quad
-\text{s.t.}
-\quad
-h(x)\leq 0,
-\quad
-J(x)\leq z.
+\begin{aligned}
+\min_{x,z}\quad & z \\
+\text{s.t.}\quad & h(x)\leq 0, \\
+& J(x)\leq z.
+\end{aligned}
 \end{equation}
 
 The constraint \(J(x)\leq z\) says that \(z\) is an upper bound on the objective.
@@ -955,4 +919,4 @@ At the optimum,
 z^\star = J(x^\star).
 \end{equation}
 
-So the epigraph form does not change the original problem. It rewrites it in a form that is often easier to analyze, easier to decompose, and useful for max objectives, constrained optimization, and convex optimization.
+So the epigraph form does not change the original optimization problem. It rewrites it in a form that is often easier to analyze, easier to decompose, and useful for max objectives, constrained optimization, and convex optimization.
