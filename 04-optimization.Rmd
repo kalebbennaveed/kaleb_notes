@@ -1,305 +1,958 @@
-# Controllers {#controllers}
+# Optimization {#optimization}
 
-This section gives examples of controllers. A controller computes the input \(u\) that should be applied to the system.
+## Epigraph Form
 
-In general, a controller can be written as
+In optimization, we often solve problems of the form
 
 \begin{equation}
-u = \pi(x,x_d),
+\min_{x} \quad J(x)
 \end{equation}
 
-where \(x\) is the current state and \(x_d\) is the desired state or desired trajectory.
+where \(x\) is the decision variable and \(J(x)\) is the objective function.
+
+The goal is to find the value of \(x\) that makes \(J(x)\) as small as possible.
+
+The **epigraph form** rewrites this problem by introducing a new scalar variable \(z\). Instead of minimizing \(J(x)\) directly, we minimize \(z\), while forcing \(z\) to be an upper bound on \(J(x)\).
+
+The epigraph form is
+
+\begin{equation}
+\min_{x,z} \quad z
+\end{equation}
+
+subject to
+
+\begin{equation}
+J(x) \leq z.
+\end{equation}
+
+So the original problem
+
+\begin{equation}
+\min_x J(x)
+\end{equation}
+
+is rewritten as
+
+\begin{equation}
+\min_{x,z} \quad z
+\quad
+\text{s.t.}
+\quad
+J(x) \leq z.
+\end{equation}
+
+The new variable \(z\) is not a penalty weight. It is not multiplied by the objective. It is simply an upper bound on the objective value.
 
 ---
 
 <div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
 
-## Example 1: PID Controller for a Unicycle
+## Example 1: Basic Epigraph Form
 
-A PID controller is a model-free feedback controller. This means it does not require the full system dynamics. Instead, it uses tracking errors to compute the input.
-
-For a unicycle robot, the state is
+Consider the optimization problem
 
 \begin{equation}
-x =
-\begin{bmatrix}
-p_x \\
-p_y \\
-\psi
-\end{bmatrix},
+\min_x \quad x^2.
 \end{equation}
 
-where \(p_x,p_y\) are the robot position and \(\psi\) is the heading angle.
-
-The input is
+The epigraph form is
 
 \begin{equation}
-u =
-\begin{bmatrix}
-v \\
-\omega
-\end{bmatrix},
+\min_{x,z} \quad z
 \end{equation}
 
-where \(v\) is the forward speed and \(\omega\) is the angular velocity.
-
-Suppose the desired position is
+subject to
 
 \begin{equation}
-p_d =
-\begin{bmatrix}
-p_{x,d} \\
-p_{y,d}
-\end{bmatrix}.
+x^2 \leq z.
 \end{equation}
 
-Define the position error vector as
+This says: choose \(x\) and \(z\), make \(z\) as small as possible, but require that \(z\) stays above \(x^2\).
+
+The optimal solution is still
 
 \begin{equation}
-e_p =
-\begin{bmatrix}
-p_{x,d} - p_x \\
-p_{y,d} - p_y
-\end{bmatrix}.
+x^\star = 0,
+\qquad
+z^\star = 0.
 \end{equation}
 
-The distance error is
-
-\begin{equation}
-e_d =
-\sqrt{
-(p_{x,d}-p_x)^2
-+
-(p_{y,d}-p_y)^2
-}.
-\end{equation}
-
-The desired heading angle is
-
-\begin{equation}
-\psi_d =
-\tan^{-1}
-\left(
-\frac{p_{y,d}-p_y}{p_{x,d}-p_x}
-\right).
-\end{equation}
-
-The heading error is
-
-\begin{equation}
-e_\psi =
-\psi_d - \psi.
-\end{equation}
-
-In practice, \(e_\psi\) should be wrapped to the interval \((-\pi,\pi]\).
-
-A PID controller for the forward speed can be written as
-
-\begin{equation}
-v
-=
-k_{p,d} e_d
-+
-k_{i,d}\int_0^t e_d(\tau)\,d\tau
-+
-k_{d,d}\dot{e}_d.
-\end{equation}
-
-A PID controller for the angular velocity can be written as
-
-\begin{equation}
-\omega
-=
-k_{p,\psi} e_\psi
-+
-k_{i,\psi}\int_0^t e_\psi(\tau)\,d\tau
-+
-k_{d,\psi}\dot{e}_\psi.
-\end{equation}
-
-Therefore, the controller is
-
-\begin{equation}
-u =
-\begin{bmatrix}
-v \\
-\omega
-\end{bmatrix}
-=
-\begin{bmatrix}
-k_{p,d} e_d
-+
-k_{i,d}\int_0^t e_d(\tau)\,d\tau
-+
-k_{d,d}\dot{e}_d
-\\
-k_{p,\psi} e_\psi
-+
-k_{i,\psi}\int_0^t e_\psi(\tau)\,d\tau
-+
-k_{d,\psi}\dot{e}_\psi
-\end{bmatrix}.
-\end{equation}
-
-The distance controller decides how fast the robot should move forward. The heading controller decides how fast the robot should rotate.
-
-This is model-free because the controller does not use the full unicycle dynamics. It only uses the measured position, heading, and tracking errors.
+So the epigraph form gives the same answer as the original problem.
 
 </div>
+
+---
+
+## Why does this work?
+
+The constraint
+
+\begin{equation}
+J(x) \leq z
+\end{equation}
+
+forces \(z\) to be at least as large as the objective value.
+
+For any fixed \(x\), the smallest valid value of \(z\) is
+
+\begin{equation}
+z = J(x).
+\end{equation}
+
+So when we minimize \(z\), the optimizer will naturally push \(z\) down until it touches \(J(x)\).
+
+At the optimum,
+
+\begin{equation}
+z^\star = J(x^\star).
+\end{equation}
+
+Therefore, minimizing \(z\) subject to \(J(x) \leq z\) is equivalent to minimizing \(J(x)\).
+
+---
+
+## Geometric meaning of the epigraph
+
+The **epigraph** of a function \(J(x)\) is the set of all points lying on or above the graph of \(J(x)\).
+
+Formally,
+
+\begin{equation}
+\mathrm{epi}(J)
+=
+\left\{
+(x,z)
+\;|\;
+J(x) \leq z
+\right\}.
+\end{equation}
+
+So the epigraph form means:
+
+\begin{equation}
+\text{Find the lowest point in the epigraph.}
+\end{equation}
+
+The variable \(z\) represents height. The constraint \(J(x)\leq z\) says that the point \((x,z)\) must lie above the function. Minimizing \(z\) pushes this point as low as possible.
 
 ---
 
 <div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
 
-## Example 2: Geometric Controller for Quadrotor
+## Example 2: Absolute Value Objective
 
-The geometric controller computes the quadrotor total thrust \(f\) and body moment \(M\).
-
-The desired position trajectory is
+Consider
 
 \begin{equation}
-x_d(t).
+\min_x \quad |x|.
 \end{equation}
 
-The desired velocity is
+The epigraph form is
 
 \begin{equation}
-v_d(t) = \dot{x}_d(t).
+\min_{x,z} \quad z
 \end{equation}
 
-The desired heading direction is
+subject to
 
 \begin{equation}
-b_{1d}(t).
+|x| \leq z.
 \end{equation}
 
-The position and velocity tracking errors are defined as
+The constraint
 
 \begin{equation}
-e_x = x - x_d,
+|x| \leq z
+\end{equation}
+
+is equivalent to
+
+\begin{equation}
+-z \leq x \leq z.
+\end{equation}
+
+So we can write
+
+\begin{equation}
+\min_{x,z} \quad z
+\end{equation}
+
+subject to
+
+\begin{equation}
+x \leq z,
 \end{equation}
 
 \begin{equation}
-e_v = v - v_d.
+-x \leq z.
 \end{equation}
 
-The attitude error function is
-
-\begin{equation}
-\Psi(R,R_d)
-=
-\frac{1}{2}
-\mathrm{tr}
-\left[
-I - R_d^T R
-\right].
-\end{equation}
-
-The attitude tracking error is
-
-\begin{equation}
-e_R
-=
-\frac{1}{2}
-\left(
-R_d^T R - R^T R_d
-\right)^\vee.
-\end{equation}
-
-The angular velocity tracking error is
-
-\begin{equation}
-e_\Omega
-=
-\Omega - R^T R_d \Omega_d.
-\end{equation}
-
-For positive constants \(k_x,k_v,k_R,k_\Omega\), define the desired third body axis as
-
-\begin{equation}
-b_{3d}
-=
--
-\frac{
--k_x e_x - k_v e_v - mg e_3 + m\ddot{x}_d
-}{
-\left\|
--k_x e_x - k_v e_v - mg e_3 + m\ddot{x}_d
-\right\|
-}.
-\end{equation}
-
-Using the desired heading direction \(b_{1d}\), define
-
-\begin{equation}
-b_{2d}
-=
-\frac{
-b_{3d} \times b_{1d}
-}{
-\left\|
-b_{3d} \times b_{1d}
-\right\|
-}.
-\end{equation}
-
-Then the desired rotation matrix is
-
-\begin{equation}
-R_d
-=
-\begin{bmatrix}
-b_{2d} \times b_{3d} &
-b_{2d} &
-b_{3d}
-\end{bmatrix}
-\in SO(3).
-\end{equation}
-
-The total thrust input is
-
-\begin{equation}
-f
-=
--
-\left(
--k_x e_x - k_v e_v - mg e_3 + m\ddot{x}_d
-\right)
-\cdot
-Re_3.
-\end{equation}
-
-The moment input is
-
-\begin{equation}
-M
-=
--k_R e_R
--
-k_\Omega e_\Omega
-+
-\Omega \times J\Omega
--
-J
-\left(
-\hat{\Omega}R^T R_d\Omega_d
--
-R^T R_d\dot{\Omega}_d
-\right).
-\end{equation}
-
-Therefore, the quadrotor controller is
-
-\begin{equation}
-u =
-\begin{bmatrix}
-f \\
-M
-\end{bmatrix}.
-\end{equation}
-
-The thrust \(f\) is chosen from the position and velocity errors. The desired attitude \(R_d\) is constructed from the desired thrust direction and desired heading direction. The moment \(M\) is chosen from the attitude and angular velocity errors.
+This is useful because the nonsmooth objective \(|x|\) becomes a linear objective with linear constraints.
 
 </div>
 
 ---
+
+## Epigraph form for constrained optimization
+
+Now consider a constrained optimization problem:
+
+\begin{equation}
+\min_x \quad J(x)
+\end{equation}
+
+subject to
+
+\begin{equation}
+h(x) \leq 0.
+\end{equation}
+
+The epigraph form is
+
+\begin{equation}
+\min_{x,z} \quad z
+\end{equation}
+
+subject to
+
+\begin{equation}
+h(x) \leq 0,
+\end{equation}
+
+\begin{equation}
+J(x) \leq z.
+\end{equation}
+
+The original constraint \(h(x)\leq 0\) stays exactly the same.
+
+The only thing we changed is the objective. Instead of minimizing \(J(x)\), we minimize \(z\), and we add the constraint \(J(x)\leq z\).
+
+---
+
+<div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
+
+## Example 3: Constrained Epigraph Form
+
+Consider
+
+\begin{equation}
+\min_x \quad x^2
+\end{equation}
+
+subject to
+
+\begin{equation}
+x \geq 1.
+\end{equation}
+
+We can write the constraint as
+
+\begin{equation}
+1-x \leq 0.
+\end{equation}
+
+The epigraph form is
+
+\begin{equation}
+\min_{x,z} \quad z
+\end{equation}
+
+subject to
+
+\begin{equation}
+1-x \leq 0,
+\end{equation}
+
+\begin{equation}
+x^2 \leq z.
+\end{equation}
+
+The optimal solution is
+
+\begin{equation}
+x^\star = 1,
+\qquad
+z^\star = 1.
+\end{equation}
+
+Again, \(z^\star\) equals the optimal objective value.
+
+</div>
+
+---
+
+## Turning constraints into a maximum condition
+
+The epigraph form
+
+\begin{equation}
+\min_{x,z} \quad z
+\end{equation}
+
+subject to
+
+\begin{equation}
+h(x) \leq 0,
+\end{equation}
+
+\begin{equation}
+J(x) \leq z
+\end{equation}
+
+can also be written using one maximum constraint.
+
+Since both constraints must hold, we can combine them as
+
+\begin{equation}
+\max\{h(x), J(x)-z\} \leq 0.
+\end{equation}
+
+Why?
+
+The condition
+
+\begin{equation}
+\max\{h(x), J(x)-z\} \leq 0
+\end{equation}
+
+means both terms inside the max must be less than or equal to zero:
+
+\begin{equation}
+h(x) \leq 0,
+\end{equation}
+
+and
+
+\begin{equation}
+J(x)-z \leq 0.
+\end{equation}
+
+The second condition is equivalent to
+
+\begin{equation}
+J(x) \leq z.
+\end{equation}
+
+Therefore,
+
+\begin{equation}
+h(x)\leq 0,
+\qquad
+J(x)\leq z
+\end{equation}
+
+is equivalent to
+
+\begin{equation}
+\max\{h(x),J(x)-z\}\leq 0.
+\end{equation}
+
+---
+
+## Inner and outer problem view
+
+The epigraph form can also be viewed as an outer problem over \(z\) and an inner problem over \(x\).
+
+Start from
+
+\begin{equation}
+\min_{x,z} \quad z
+\end{equation}
+
+subject to
+
+\begin{equation}
+\max\{h(x),J(x)-z\} \leq 0.
+\end{equation}
+
+For a fixed \(z\), define
+
+\begin{equation}
+\phi(z)
+=
+\min_x
+\max\{h(x),J(x)-z\}.
+\end{equation}
+
+Then the epigraph problem becomes
+
+\begin{equation}
+\min_z \quad z
+\end{equation}
+
+subject to
+
+\begin{equation}
+\phi(z) \leq 0.
+\end{equation}
+
+So we have two levels:
+
+\begin{equation}
+\text{Inner problem:}
+\qquad
+\phi(z)
+=
+\min_x
+\max\{h(x),J(x)-z\}.
+\end{equation}
+
+\begin{equation}
+\text{Outer problem:}
+\qquad
+\min_z z
+\quad
+\text{s.t.}
+\quad
+\phi(z)\leq 0.
+\end{equation}
+
+The inner problem asks:
+
+\begin{equation}
+\text{For this proposed upper bound } z,\text{ can I find an }x\text{ that satisfies everything?}
+\end{equation}
+
+The outer problem asks:
+
+\begin{equation}
+\text{What is the smallest upper bound }z\text{ that is feasible?}
+\end{equation}
+
+This is the form shown in the optimization block of your uploaded material. :contentReference[oaicite:0]{index=0}
+
+---
+
+<div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
+
+## Example 4: Inner and Outer View
+
+Consider
+
+\begin{equation}
+\min_x \quad x^2
+\end{equation}
+
+subject to
+
+\begin{equation}
+x \geq 1.
+\end{equation}
+
+Write
+
+\begin{equation}
+h(x)=1-x,
+\qquad
+J(x)=x^2.
+\end{equation}
+
+The epigraph max constraint is
+
+\begin{equation}
+\max\{1-x,x^2-z\}\leq 0.
+\end{equation}
+
+For a fixed \(z\), the inner problem is
+
+\begin{equation}
+\phi(z)
+=
+\min_x
+\max\{1-x,x^2-z\}.
+\end{equation}
+
+If \(z<1\), then there is no feasible \(x\) satisfying both
+
+\begin{equation}
+x\geq 1
+\end{equation}
+
+and
+
+\begin{equation}
+x^2\leq z.
+\end{equation}
+
+So \(z<1\) is impossible.
+
+If \(z=1\), choosing \(x=1\) gives
+
+\begin{equation}
+1-x=0,
+\end{equation}
+
+and
+
+\begin{equation}
+x^2-z=0.
+\end{equation}
+
+Therefore,
+
+\begin{equation}
+\max\{1-x,x^2-z\}=0.
+\end{equation}
+
+So \(z=1\) is feasible.
+
+The outer problem chooses the smallest feasible \(z\), so
+
+\begin{equation}
+z^\star=1,
+\qquad
+x^\star=1.
+\end{equation}
+
+</div>
+
+---
+
+## Why \(z\) is added, not multiplied
+
+A common confusion is why we write
+
+\begin{equation}
+J(x)-z
+\end{equation}
+
+inside the max instead of multiplying the objective by \(z\).
+
+The reason is that \(z\) is an upper bound, not a weight.
+
+The constraint
+
+\begin{equation}
+J(x)\leq z
+\end{equation}
+
+is equivalent to
+
+\begin{equation}
+J(x)-z\leq 0.
+\end{equation}
+
+That is why \(z\) appears by subtraction.
+
+It is not trying to scale the objective. It is trying to represent the statement:
+
+\begin{equation}
+\text{objective value} \leq \text{upper bound}.
+\end{equation}
+
+So the correct expression is
+
+\begin{equation}
+J(x)-z.
+\end{equation}
+
+not
+
+\begin{equation}
+zJ(x).
+\end{equation}
+
+If we multiplied \(J(x)\) by \(z\), then \(z\) would become a weighting or scaling variable. That would be a different optimization problem.
+
+---
+
+## Feasibility interpretation
+
+For each value of \(z\), the question is:
+
+\begin{equation}
+\text{Does there exist an }x\text{ such that }h(x)\leq 0\text{ and }J(x)\leq z?
+\end{equation}
+
+If yes, then \(z\) is feasible.
+
+If no, then \(z\) is infeasible.
+
+The optimal \(z^\star\) is the smallest feasible upper bound.
+
+This gives an important interpretation:
+
+\begin{equation}
+z^\star
+=
+\text{best achievable objective value under the constraints}.
+\end{equation}
+
+---
+
+## Monotonicity property
+
+The feasible set in \(z\) is monotonic.
+
+If a value \(z\) is feasible, then any larger value \(\bar{z}\geq z\) is also feasible.
+
+Why?
+
+If
+
+\begin{equation}
+J(x)\leq z
+\end{equation}
+
+and
+
+\begin{equation}
+\bar{z}\geq z,
+\end{equation}
+
+then automatically
+
+\begin{equation}
+J(x)\leq \bar{z}.
+\end{equation}
+
+So making \(z\) larger relaxes the upper-bound constraint.
+
+This means the outer problem often has a threshold structure:
+
+\begin{equation}
+z < z^\star
+\quad \Rightarrow \quad
+\text{infeasible},
+\end{equation}
+
+\begin{equation}
+z \geq z^\star
+\quad \Rightarrow \quad
+\text{feasible}.
+\end{equation}
+
+This is why epigraph forms are often convenient for one-dimensional search over \(z\).
+
+---
+
+## Convexity property
+
+Epigraph form is especially important in convex optimization.
+
+A function \(J(x)\) is convex if and only if its epigraph is a convex set.
+
+That means
+
+\begin{equation}
+J(x) \text{ is convex}
+\quad \Longleftrightarrow \quad
+\mathrm{epi}(J)
+=
+\{(x,z):J(x)\leq z\}
+\text{ is convex}.
+\end{equation}
+
+This is one of the most important properties of epigraphs.
+
+It means that a convex objective can be converted into a linear objective with a convex constraint:
+
+\begin{equation}
+\min_x J(x)
+\end{equation}
+
+becomes
+
+\begin{equation}
+\min_{x,z} z
+\end{equation}
+
+subject to
+
+\begin{equation}
+J(x)\leq z.
+\end{equation}
+
+The objective \(z\) is linear, and the complexity is moved into the constraint.
+
+---
+
+<div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
+
+## Example 5: Maximum Objective
+
+Suppose we want to minimize the maximum of several functions:
+
+\begin{equation}
+\min_x \quad \max\{f_1(x),f_2(x),f_3(x)\}.
+\end{equation}
+
+Introduce \(z\) as an upper bound on all three functions.
+
+The epigraph form is
+
+\begin{equation}
+\min_{x,z} \quad z
+\end{equation}
+
+subject to
+
+\begin{equation}
+f_1(x)\leq z,
+\end{equation}
+
+\begin{equation}
+f_2(x)\leq z,
+\end{equation}
+
+\begin{equation}
+f_3(x)\leq z.
+\end{equation}
+
+This works because saying
+
+\begin{equation}
+\max\{f_1(x),f_2(x),f_3(x)\}\leq z
+\end{equation}
+
+is the same as saying every function is below \(z\).
+
+This is useful because it replaces a max objective with multiple inequality constraints.
+
+</div>
+
+---
+
+## Relation to minimax problems
+
+Epigraph form is often used when the objective has a maximum:
+
+\begin{equation}
+\min_x \max_i f_i(x).
+\end{equation}
+
+The epigraph form is
+
+\begin{equation}
+\min_{x,z} z
+\end{equation}
+
+subject to
+
+\begin{equation}
+f_i(x)\leq z,
+\qquad
+\forall i.
+\end{equation}
+
+So instead of minimizing the worst-case value directly, we minimize an upper bound on all possible values.
+
+This is why epigraph form appears often in robust optimization, safety-constrained optimization, and multi-agent optimization.
+
+---
+
+## Relation to Lagrangian methods
+
+For a constrained problem
+
+\begin{equation}
+\min_x J(x)
+\quad
+\text{s.t.}
+\quad
+h(x)\leq 0,
+\end{equation}
+
+a Lagrangian method forms
+
+\begin{equation}
+L(x,\lambda)
+=
+J(x)+\lambda h(x),
+\end{equation}
+
+where \(\lambda\geq 0\) is a multiplier.
+
+Here, the constraint is added as a penalty-like term.
+
+By contrast, the epigraph form writes
+
+\begin{equation}
+\min_{x,z} z
+\end{equation}
+
+subject to
+
+\begin{equation}
+h(x)\leq 0,
+\end{equation}
+
+\begin{equation}
+J(x)\leq z.
+\end{equation}
+
+The key difference is:
+
+\begin{equation}
+\text{Lagrangian: constraint affects objective through a multiplier.}
+\end{equation}
+
+\begin{equation}
+\text{Epigraph: objective becomes an upper-bound constraint.}
+\end{equation}
+
+The epigraph form does not multiply the objective or constraint by \(z\). It uses \(z\) as a target upper bound.
+
+---
+
+## Important properties
+
+### Property 1: Same optimizer
+
+The epigraph form has the same optimal \(x^\star\) as the original problem.
+
+Original problem:
+
+\begin{equation}
+x^\star
+=
+\arg\min_x J(x).
+\end{equation}
+
+Epigraph form:
+
+\begin{equation}
+(x^\star,z^\star)
+=
+\arg\min_{x,z}
+z
+\quad
+\text{s.t.}
+\quad
+J(x)\leq z.
+\end{equation}
+
+At the optimum,
+
+\begin{equation}
+z^\star = J(x^\star).
+\end{equation}
+
+### Property 2: Converts objective into a constraint
+
+The objective \(J(x)\) becomes the constraint
+
+\begin{equation}
+J(x)\leq z.
+\end{equation}
+
+The new objective is simply
+
+\begin{equation}
+\min z.
+\end{equation}
+
+### Property 3: Useful for max objectives
+
+A problem like
+
+\begin{equation}
+\min_x \max_i f_i(x)
+\end{equation}
+
+becomes
+
+\begin{equation}
+\min_{x,z} z
+\quad
+\text{s.t.}
+\quad
+f_i(x)\leq z,
+\quad
+\forall i.
+\end{equation}
+
+### Property 4: Preserves convexity
+
+If \(J(x)\) is convex and the constraints are convex, then the epigraph form is also convex.
+
+### Property 5: Gives an upper-bound interpretation
+
+The variable \(z\) always has the meaning
+
+\begin{equation}
+z = \text{candidate upper bound on the objective}.
+\end{equation}
+
+The optimizer searches for the smallest valid upper bound.
+
+---
+
+## Common mistake
+
+A common mistake is to think that epigraph form changes the objective by weighting it.
+
+That is not correct.
+
+The epigraph form does not write
+
+\begin{equation}
+zJ(x).
+\end{equation}
+
+It writes
+
+\begin{equation}
+J(x)\leq z.
+\end{equation}
+
+or equivalently,
+
+\begin{equation}
+J(x)-z\leq 0.
+\end{equation}
+
+So \(z\) is not a weight. It is an upper bound.
+
+---
+
+## Summary
+
+The epigraph form rewrites
+
+\begin{equation}
+\min_x J(x)
+\end{equation}
+
+as
+
+\begin{equation}
+\min_{x,z} z
+\quad
+\text{s.t.}
+\quad
+J(x)\leq z.
+\end{equation}
+
+For constrained problems,
+
+\begin{equation}
+\min_x J(x)
+\quad
+\text{s.t.}
+\quad
+h(x)\leq 0
+\end{equation}
+
+becomes
+
+\begin{equation}
+\min_{x,z} z
+\quad
+\text{s.t.}
+\quad
+h(x)\leq 0,
+\quad
+J(x)\leq z.
+\end{equation}
+
+The constraint \(J(x)\leq z\) says that \(z\) is an upper bound on the objective.
+
+At the optimum,
+
+\begin{equation}
+z^\star = J(x^\star).
+\end{equation}
+
+So the epigraph form does not change the original problem. It rewrites it in a form that is often easier to analyze, easier to decompose, and useful for max objectives, constrained optimization, and convex optimization.
