@@ -523,7 +523,7 @@ M
 \end{bmatrix},
 \end{equation}
 
-where \(f \in \mathbb{R}\) is the total thrust and \(M \in \mathbb{R}^3\) is the total body-frame moment.
+where \(F \in \mathbb{R}\) is the total thrust and \(M \in \mathbb{R}^3\) is the total body-frame moment.
 
 The quadrotor dynamics are
 
@@ -532,7 +532,7 @@ The quadrotor dynamics are
 \end{equation}
 
 \begin{equation}
-m\dot{v} = mge_3 - fRe_3,
+m\dot{v} = mge_3 - FRe_3,
 \end{equation}
 
 \begin{equation}
@@ -550,7 +550,7 @@ Equivalently,
 =
 ge_3
 -
-\frac{f}{m}Re_3,
+\frac{F}{m}Re_3,
 \end{equation}
 
 and
@@ -604,16 +604,4 @@ This model is nonlinear because the attitude evolves on \(SO(3)\), the translati
 
 </div>
 
----
-
-## Summary
-
-All of the examples above can be written as
-
-\begin{equation}
-\dot{x} = f(x,u).
-\end{equation}
-
-The difference between the models is the choice of state \(x\), input \(u\), and dynamics \(f(x,u)\).
-
-The single integrator directly controls velocity. The double integrator controls acceleration. The unicycle model includes heading. The 2D dynamic bicycle model includes vehicle slip and tire forces. The quadrotor model includes three-dimensional translation and rigid-body rotation.
+---   
