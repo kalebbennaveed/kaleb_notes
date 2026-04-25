@@ -1,0 +1,305 @@
+# Controllers {#controllers}
+
+This section gives examples of controllers. A controller computes the input \(u\) that should be applied to the system.
+
+In general, a controller can be written as
+
+\begin{equation}
+u = \pi(x,x_d),
+\end{equation}
+
+where \(x\) is the current state and \(x_d\) is the desired state or desired trajectory.
+
+---
+
+<div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
+
+## Example 1: PID Controller for a Unicycle
+
+A PID controller is a model-free feedback controller. This means it does not require the full system dynamics. Instead, it uses tracking errors to compute the input.
+
+For a unicycle robot, the state is
+
+\begin{equation}
+x =
+\begin{bmatrix}
+p_x \\
+p_y \\
+\psi
+\end{bmatrix},
+\end{equation}
+
+where \(p_x,p_y\) are the robot position and \(\psi\) is the heading angle.
+
+The input is
+
+\begin{equation}
+u =
+\begin{bmatrix}
+v \\
+\omega
+\end{bmatrix},
+\end{equation}
+
+where \(v\) is the forward speed and \(\omega\) is the angular velocity.
+
+Suppose the desired position is
+
+\begin{equation}
+p_d =
+\begin{bmatrix}
+p_{x,d} \\
+p_{y,d}
+\end{bmatrix}.
+\end{equation}
+
+Define the position error vector as
+
+\begin{equation}
+e_p =
+\begin{bmatrix}
+p_{x,d} - p_x \\
+p_{y,d} - p_y
+\end{bmatrix}.
+\end{equation}
+
+The distance error is
+
+\begin{equation}
+e_d =
+\sqrt{
+(p_{x,d}-p_x)^2
++
+(p_{y,d}-p_y)^2
+}.
+\end{equation}
+
+The desired heading angle is
+
+\begin{equation}
+\psi_d =
+\tan^{-1}
+\left(
+\frac{p_{y,d}-p_y}{p_{x,d}-p_x}
+\right).
+\end{equation}
+
+The heading error is
+
+\begin{equation}
+e_\psi =
+\psi_d - \psi.
+\end{equation}
+
+In practice, \(e_\psi\) should be wrapped to the interval \((-\pi,\pi]\).
+
+A PID controller for the forward speed can be written as
+
+\begin{equation}
+v
+=
+k_{p,d} e_d
++
+k_{i,d}\int_0^t e_d(\tau)\,d\tau
++
+k_{d,d}\dot{e}_d.
+\end{equation}
+
+A PID controller for the angular velocity can be written as
+
+\begin{equation}
+\omega
+=
+k_{p,\psi} e_\psi
++
+k_{i,\psi}\int_0^t e_\psi(\tau)\,d\tau
++
+k_{d,\psi}\dot{e}_\psi.
+\end{equation}
+
+Therefore, the controller is
+
+\begin{equation}
+u =
+\begin{bmatrix}
+v \\
+\omega
+\end{bmatrix}
+=
+\begin{bmatrix}
+k_{p,d} e_d
++
+k_{i,d}\int_0^t e_d(\tau)\,d\tau
++
+k_{d,d}\dot{e}_d
+\\
+k_{p,\psi} e_\psi
++
+k_{i,\psi}\int_0^t e_\psi(\tau)\,d\tau
++
+k_{d,\psi}\dot{e}_\psi
+\end{bmatrix}.
+\end{equation}
+
+The distance controller decides how fast the robot should move forward. The heading controller decides how fast the robot should rotate.
+
+This is model-free because the controller does not use the full unicycle dynamics. It only uses the measured position, heading, and tracking errors.
+
+</div>
+
+---
+
+<div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
+
+## Example 2: Geometric Controller for Quadrotor
+
+The geometric controller computes the quadrotor total thrust \(f\) and body moment \(M\).
+
+The desired position trajectory is
+
+\begin{equation}
+x_d(t).
+\end{equation}
+
+The desired velocity is
+
+\begin{equation}
+v_d(t) = \dot{x}_d(t).
+\end{equation}
+
+The desired heading direction is
+
+\begin{equation}
+b_{1d}(t).
+\end{equation}
+
+The position and velocity tracking errors are defined as
+
+\begin{equation}
+e_x = x - x_d,
+\end{equation}
+
+\begin{equation}
+e_v = v - v_d.
+\end{equation}
+
+The attitude error function is
+
+\begin{equation}
+\Psi(R,R_d)
+=
+\frac{1}{2}
+\mathrm{tr}
+\left[
+I - R_d^T R
+\right].
+\end{equation}
+
+The attitude tracking error is
+
+\begin{equation}
+e_R
+=
+\frac{1}{2}
+\left(
+R_d^T R - R^T R_d
+\right)^\vee.
+\end{equation}
+
+The angular velocity tracking error is
+
+\begin{equation}
+e_\Omega
+=
+\Omega - R^T R_d \Omega_d.
+\end{equation}
+
+For positive constants \(k_x,k_v,k_R,k_\Omega\), define the desired third body axis as
+
+\begin{equation}
+b_{3d}
+=
+-
+\frac{
+-k_x e_x - k_v e_v - mg e_3 + m\ddot{x}_d
+}{
+\left\|
+-k_x e_x - k_v e_v - mg e_3 + m\ddot{x}_d
+\right\|
+}.
+\end{equation}
+
+Using the desired heading direction \(b_{1d}\), define
+
+\begin{equation}
+b_{2d}
+=
+\frac{
+b_{3d} \times b_{1d}
+}{
+\left\|
+b_{3d} \times b_{1d}
+\right\|
+}.
+\end{equation}
+
+Then the desired rotation matrix is
+
+\begin{equation}
+R_d
+=
+\begin{bmatrix}
+b_{2d} \times b_{3d} &
+b_{2d} &
+b_{3d}
+\end{bmatrix}
+\in SO(3).
+\end{equation}
+
+The total thrust input is
+
+\begin{equation}
+f
+=
+-
+\left(
+-k_x e_x - k_v e_v - mg e_3 + m\ddot{x}_d
+\right)
+\cdot
+Re_3.
+\end{equation}
+
+The moment input is
+
+\begin{equation}
+M
+=
+-k_R e_R
+-
+k_\Omega e_\Omega
++
+\Omega \times J\Omega
+-
+J
+\left(
+\hat{\Omega}R^T R_d\Omega_d
+-
+R^T R_d\dot{\Omega}_d
+\right).
+\end{equation}
+
+Therefore, the quadrotor controller is
+
+\begin{equation}
+u =
+\begin{bmatrix}
+f \\
+M
+\end{bmatrix}.
+\end{equation}
+
+The thrust \(f\) is chosen from the position and velocity errors. The desired attitude \(R_d\) is constructed from the desired thrust direction and desired heading direction. The moment \(M\) is chosen from the attitude and angular velocity errors.
+
+</div>
+
+---
