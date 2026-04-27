@@ -1,4 +1,4 @@
-# Optimization {#optimization}
+# Optimization -- Epigraph Form {#optimization}
 
 ## Epigraph Form
 
