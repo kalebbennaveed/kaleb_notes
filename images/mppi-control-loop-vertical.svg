@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 1370" role="img" aria-labelledby="title desc">
+<title id="title">MPPI inside the MPC loop</title><desc id="desc">Sample controls, predict robot trajectories, evaluate corrected costs, compute weights, update the controls, and simulate the new plan. Apply its first control to the robot, measure the new state, and shift the remaining controls for the next planning problem.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10Z" fill="#536570"/></marker></defs>
+<style>text{font-family:Arial,Helvetica,sans-serif;fill:#303b43;text-anchor:middle}.title{font-size:25px;font-weight:600}.body{font-size:23px}.flow{fill:none;stroke:#536570;stroke-width:2;marker-end:url(#arrow)}</style>
+<rect width="560" height="1370" rx="10" fill="white"/>
+<rect x="45" y="15" width="470" height="95" rx="10" fill="#e8e6f5"/>
+<text x="280" y="50" class="title">Current MPC problem</text><text x="280" y="83" class="body">Measured x₀ · Nominal controls Ū</text>
+<path d="M280 110 V141" class="flow"/>
+
+<rect x="45" y="145" width="470" height="115" rx="10" fill="#f7f7fb" stroke="#c9c4d8" stroke-width="1.5"/>
+<text x="280" y="180" class="title">1. Sample controls</text>
+<text x="280" y="214" class="body">Draw K perturbation sequences</text>
+<text x="280" y="243" class="body">uₜ⁽ᵏ⁾ = ūₜ + εₜ⁽ᵏ⁾</text>
+<path d="M280 260 V291" class="flow"/>
+<rect x="45" y="295" width="470" height="115" rx="10" fill="#f7f7fb" stroke="#c9c4d8" stroke-width="1.5"/>
+<text x="280" y="330" class="title">2. Predict trajectories</text>
+<text x="280" y="364" class="body">Start every simulation at x₀</text>
+<text x="280" y="393" class="body">xₜ₊₁⁽ᵏ⁾ = F(xₜ⁽ᵏ⁾, uₜ⁽ᵏ⁾)</text>
+<path d="M280 410 V441" class="flow"/>
+<rect x="45" y="445" width="470" height="115" rx="10" fill="#f7f7fb" stroke="#c9c4d8" stroke-width="1.5"/>
+<text x="280" y="480" class="title">3. Evaluate costs</text>
+<text x="280" y="514" class="body">Trajectory cost Sₖ</text>
+<text x="280" y="543" class="body">+ sampling correction → Cₖ</text>
+<path d="M280 560 V591" class="flow"/>
+<rect x="45" y="595" width="470" height="115" rx="10" fill="#f7f7fb" stroke="#c9c4d8" stroke-width="1.5"/>
+<text x="280" y="630" class="title">4. Compute weights</text>
+<text x="280" y="664" class="body">Exponential weights from Cₖ</text>
+<text x="280" y="693" class="body">Normalize so Σₖ wₖ = 1</text>
+<path d="M280 710 V741" class="flow"/>
+<rect x="45" y="745" width="470" height="115" rx="10" fill="#f7f7fb" stroke="#c9c4d8" stroke-width="1.5"/>
+<text x="280" y="780" class="title">5. Update the controls</text>
+<text x="280" y="814" class="body">Add weighted perturbations</text>
+<text x="280" y="843" class="body">ūₜ⁺ = ūₜ + Σₖ wₖ εₜ⁽ᵏ⁾</text>
+<path d="M280 860 V891" class="flow"/>
+<rect x="45" y="895" width="470" height="115" rx="10" fill="#e8e6f5" stroke="#c9c4d8" stroke-width="1.5"/>
+<text x="280" y="930" class="title">6. Form the new plan</text>
+<text x="280" y="964" class="body">Simulate the updated controls</text>
+<text x="280" y="993" class="body">Apply only the first control</text>
+<path d="M280 1010 V1041" class="flow"/>
+<rect x="45" y="1045" width="470" height="115" rx="10" fill="#eef3f5" stroke="#c9c4d8" stroke-width="1.5"/>
+<text x="280" y="1080" class="title">Robot</text>
+<text x="280" y="1114" class="body">Execute the first control</text>
+<text x="280" y="1143" class="body">for one control interval</text>
+<path d="M280 1160 V1191" class="flow"/>
+<rect x="45" y="1195" width="470" height="115" rx="10" fill="#eef3f5" stroke="#c9c4d8" stroke-width="1.5"/>
+<text x="280" y="1230" class="title">Next MPC problem</text>
+<text x="280" y="1264" class="body">Measure x₀ · Shift the controls</text>
+<text x="280" y="1293" class="body">Fill the final horizon entry</text>
+<path d="M45 1252 H15 V62 H41" class="flow"/>
+<text x="280" y="1350" style="font-size:19px;fill:#536570">Optional: repeat Steps 1–5 before execution.</text></svg>
