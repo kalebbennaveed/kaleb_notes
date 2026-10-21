@@ -658,7 +658,7 @@ The supplied papers show results for their own models, cost choices, and computi
 
 ## From these equations to the implementation
 
-The accompanying [JAX implementation tutorial](https://github.com/kalebbennaveed/planning-algorithms-library/tree/main/planning-algorithm-tutorial/mppi) contains an installable `uv` project, three environments, numerical tests, and a local browser playground. Its [website walkthrough](https://kalebbennaveed.github.io/planning-algorithm-tutorial/mppi/) maps the equations to the code.
+The accompanying [JAX implementation tutorial](https://kalebbennaveed.github.io/planning-algorithm-tutorial/mppi/) maps these equations to the code and provides an installable `uv` project, three environments, numerical tests, and a local browser playground. Download the [source archive](https://kalebbennaveed.github.io/planning-algorithm-tutorial/mppi/jax-mppi-tutorial.zip) to run it. The [Git repository](https://github.com/kalebbennaveed/planning-algorithms-library/tree/main/planning-algorithm-tutorial/mppi) is also available to readers with repository access.
 
 | This chapter | Implementation |
 |:---|:---|
