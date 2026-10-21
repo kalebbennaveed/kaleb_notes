@@ -12,3 +12,16 @@ pre {
 pre code {
   white-space: inherit;
 }
+
+/* Long MPPI derivations and notation tables remain readable in narrow panels. */
+#model-predictive-path-integral-control .math.display {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 0.5em 0;
+}
+#model-predictive-path-integral-control table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}

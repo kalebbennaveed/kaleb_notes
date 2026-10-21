@@ -1,0 +1,687 @@
+# Model Predictive Path Integral Control {#model-predictive-path-integral-control}
+
+## Introduction
+
+The [system modelling chapter](#system-modelling) describes how an input changes a robot's state. The [dynamic models chapter](#different-dynamic-models) gives examples of these equations. We now ask a different question: **how should we choose the next input when the effect of that input depends on what we will do later?**
+
+Model Predictive Path Integral control, abbreviated **MPPI**, answers this question by simulating many possible input sequences. Each sequence produces a predicted state trajectory. We assign a cost to each trajectory, give more weight to lower-cost trajectories, and use the weighted samples to update the input sequence. We apply its first input, measure the new state, and repeat.
+
+This chapter follows the three supplied papers. Williams, Aldrich, and Theodorou derive path-integral control and covariance-variable importance sampling [@williams2015; @williams2017]. Kim et al. present the discrete input-distribution formulation and extend it to smooth MPPI [@kim2022]. We derive the formulas below in a common notation. Numerical examples are teaching examples constructed from those formulas; they are not experimental results from the papers.
+
+The chapter assumes the state, input, dynamics, and optimization notation used in the preceding notes. Probability densities, expectations, sampling, and the additional control concepts are introduced here before they are used.
+
+**Reading guide:** [Control problem](#from-a-model-to-a-finite-horizon-control-problem), [probability](#the-probability-ideas-needed-for-mppi), [weight derivation](#why-exponential-weights-appear), [covariance changes](#changing-the-sampling-covariance), [continuous-time derivation](#where-the-name-path-integral-comes-from), [algorithm](#the-complete-receding-horizon-algorithm), [smooth MPPI](#smooth-mppi), and [implementation](#from-these-equations-to-the-implementation).
+
+---
+
+## From a model to a finite-horizon control problem
+
+Let the current measured state be \(x_{\mathrm{now}}\in\mathbb R^n\). Choose a prediction step \(\Delta t>0\), measured in seconds, and a number of prediction steps \(H\). The prediction covers \(H\Delta t\) seconds.
+
+A discrete model is
+
+\begin{equation}
+x_{t+1}=F(x_t,a_t),\qquad x_0=x_{\mathrm{now}},\qquad t=0,\ldots,H-1.
+(\#eq:mppi-model)
+\end{equation}
+
+Here, \(t\) is an integer prediction index, \(x_t\in\mathbb R^n\) is a predicted state, and \(a_t\in\mathbb R^m\) is the input sent to the physical model. The function \(F\) advances the state by \(\Delta t\). For a continuous model \(\dot x=f(x,a)\), one possible approximation is forward Euler, \(F(x,a)=x+\Delta t f(x,a)\). Other integration rules can be used.
+
+A **rollout** means repeatedly applying this model from the same initial state using a proposed input sequence. It produces \(H+1\) states from \(H\) inputs.
+
+A typical finite-horizon objective is
+
+\begin{equation}
+J(A)=\phi(x_H)+\sum_{t=0}^{H-1}\big[c(x_t)+r(a_t)\big],
+\qquad A=(a_0,\ldots,a_{H-1}).
+(\#eq:mppi-finite-objective)
+\end{equation}
+
+The scalar \(c(x_t)\) is a **running state cost** for one prediction step. The scalar \(\phi(x_H)\) is a **terminal cost**, which evaluates the state at the end of the horizon. The function \(r\) penalizes input use. For example, position error, speed error, and proximity to an obstacle can contribute to \(c\).
+
+If \(\ell(x)\) is a cost per second, then \(c(x)=\Delta t\,\ell(x)\). We use discrete costs \(c\) throughout the implementation. Multiplying by \(\Delta t\) twice would change the objective.
+
+**Model predictive control (MPC)** means repeatedly solving a finite-horizon problem but applying only its first input. At the next measurement, the initial condition changes and the prediction is recomputed. This creates feedback even when each individual prediction uses a fixed sequence of inputs. Williams et al. use this receding-horizon procedure in Section V of their 2017 paper.
+
+MPPI supplies a sampling-based update for this procedure. Its particular input penalty follows from the probability model; it is not an arbitrary quadratic penalty that can be selected independently of every other parameter. We will make this relationship explicit.
+
+<div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
+
+**Example 1: Predicting a double integrator**
+
+For the planar double integrator in the existing notes, let \(p_t\in\mathbb R^2\) be position, \(v_t\in\mathbb R^2\) velocity, and \(a_t\in\mathbb R^2\) acceleration. Holding acceleration constant for one step gives
+
+\begin{equation}
+p_{t+1}=p_t+\Delta t\,v_t+\tfrac12\Delta t^2a_t,
+\qquad v_{t+1}=v_t+\Delta t\,a_t.
+\end{equation}
+
+A sequence of accelerations therefore determines a sequence of positions and velocities. A useful state cost is large when the robot is far from its goal, moving too fast near the goal, or close to an obstacle. The example code uses this model. Its numerical cost weights are tutorial choices.
+
+</div>
+
+---
+
+## Notation used in the sampling derivation
+
+We distinguish a sampled input coordinate from the physical input. Initially they are the same, \(a_t=v_t\). Later, a saturation map will convert \(v_t\) into a bounded physical input.
+
+| Symbol | Meaning |
+|:---|:---|
+| \(n,m\) | State dimension and input dimension |
+| \(H,\Delta t\) | Number of prediction steps and duration of each step |
+| \(t\) | Prediction index, from \(0\) to \(H-1\) |
+| \(K,k\) | Number of sampled sequences and sample index \(k=1,\ldots,K\) |
+| \(i\) | Optimization iteration at a fixed measured state |
+| \(x_t\) | Predicted state, a column vector in \(\mathbb R^n\) |
+| \(u_t\) | Mean of the sampling distribution at prediction step \(t\) |
+| \(\epsilon_t^{(k)}\) | Random perturbation for sample \(k\) at step \(t\) |
+| \(v_t^{(k)}=u_t+\epsilon_t^{(k)}\) | Sampled input coordinate in \(\mathbb R^m\) |
+| \(U,V,E\) | Complete sequences of means, sampled inputs, and perturbations |
+| \(a_t,A\) | Physical input and complete physical input sequence |
+| \(\Sigma\) | Positive definite reference covariance in input coordinates |
+| \(\lambda>0\) | Temperature, with the same units as the total cost |
+| \(p,q_U,q^\star\) | Reference, sampling, and target probability densities |
+| \(S(V)\) | State-trajectory cost induced by the sampled sequence |
+| \(C_k,w_k\) | Corrected score and normalized weight of sample \(k\) |
+
+The superscript \(\top\) denotes transpose. For a positive definite matrix \(M\), \(z^\top Mz>0\) for every nonzero vector \(z\); hence \(M^{-1}\) exists. A diagonal covariance \(\Sigma=\operatorname{diag}(\sigma_1^2,\ldots,\sigma_m^2)\) describes independent input components with standard deviations \(\sigma_j>0\).
+
+The papers use different symbols. In Kim et al., the integer horizon is \(T\), the running state cost is \(c\), and the input sequence is \(V\). In Williams et al., \(T\) is a final continuous time, \(q(x,t)\) is a running state cost, and \(V(x,t)\) is a value function. Here, \(q_U\) always denotes a density; the continuous-time value function will be \(W\).
+
+---
+
+## The probability ideas needed for MPPI
+
+### A density describes where samples are likely to lie
+
+A probability density \(p(z)\) is nonnegative and integrates to one. The probability of a random vector lying in a region is the integral of its density over that region. The density itself is not the probability of one exact point.
+
+A Gaussian vector with mean \(\mu\in\mathbb R^m\) and covariance \(\Sigma\) is written \(z\sim\mathcal N(\mu,\Sigma)\). Its density is
+
+\begin{equation}
+\mathcal N(z;\mu,\Sigma)
+=\frac{\exp\!\left[-\tfrac12(z-\mu)^\top\Sigma^{-1}(z-\mu)\right]}
+{(2\pi)^{m/2}|\Sigma|^{1/2}},
+\end{equation}
+
+where \(|\Sigma|\) is the determinant. The mean is the distribution's average location. The covariance describes the spread and correlation around that location.
+
+For diagonal \(\Sigma\), drawing \(z=\mu+\operatorname{diag}(\sigma_1,\ldots,\sigma_m)\xi\), with independent standard normal entries in \(\xi\), produces this Gaussian. This is the sampling operation in the code.
+
+### An expectation is a probability-weighted average
+
+For a scalar or vector function \(h\), its expectation under density \(p\) is
+
+\begin{equation}
+\mathbb E_p[h(z)]=\int h(z)p(z)\,dz.
+\end{equation}
+
+If \(z^{(1)},\ldots,z^{(K)}\) are independent samples from \(p\), we approximate the expectation by
+
+\begin{equation}
+\mathbb E_p[h(z)]\approx\frac1K\sum_{k=1}^K h(z^{(k)}).
+\end{equation}
+
+This is a **Monte Carlo approximation**. It replaces an integral with an average of sampled values. A finite sample introduces error; increasing \(K\) does not make every individual update better.
+
+For a random vector \(z\) with mean \(\mu=\mathbb E[z]\), its covariance is \(\operatorname{Cov}(z)=\mathbb E[(z-\mu)(z-\mu)^\top]\). Its diagonal entries are component variances. A standard normal scalar has mean zero and variance one.
+
+### Importance sampling changes where we draw samples
+
+Suppose we want an average under \(p\), but we can draw more useful samples from another density \(q\). Provided \(q\) is positive wherever \(h(z)p(z)\) contributes,
+
+\begin{equation}
+\mathbb E_p[h(z)]
+=\int h(z)\frac{p(z)}{q(z)}q(z)\,dz
+=\mathbb E_q\!\left[h(z)\frac{p(z)}{q(z)}\right].
+(\#eq:mppi-importance)
+\end{equation}
+
+The factor \(p/q\) corrects for the fact that some regions are sampled more often under \(q\). Dropping it generally changes the average being estimated. This elementary identity is the reason for the additional term in the MPPI score. The importance-sampling sections of both Williams papers develop its trajectory form.
+
+---
+
+## Distributions over complete input sequences
+
+We first use the same covariance at every prediction step and independent perturbations across steps. The reference density is
+
+\begin{equation}
+p(V)=\prod_{t=0}^{H-1}\mathcal N(v_t;0,\Sigma).
+(\#eq:mppi-prior)
+\end{equation}
+
+It describes zero-mean input sequences before accounting for the task cost. It is also called the **uncontrolled distribution** in the papers.
+
+To search near an existing sequence \(U\), sample from
+
+\begin{equation}
+q_U(V)=\prod_{t=0}^{H-1}\mathcal N(v_t;u_t,\Sigma),
+\qquad v_t=u_t+\epsilon_t,\quad \epsilon_t\sim\mathcal N(0,\Sigma).
+(\#eq:mppi-proposal)
+\end{equation}
+
+The mean sequence \(U\) is held fixed while generating one batch of \(K\) rollouts. Every rollout starts at the same measured state. With the deterministic model in Equation \@ref(eq:mppi-model), a sampled sequence determines its entire state trajectory.
+
+Define its state cost as
+
+\begin{equation}
+S(V)=\phi(x_H)+\sum_{t=0}^{H-1}c(x_t),
+\qquad x_{t+1}=F(x_t,v_t).
+(\#eq:mppi-state-cost)
+\end{equation}
+
+This is Kim et al., Equations (1), (2), and (4), in our notation. No extra random process disturbance is simulated in the accompanying examples. The perturbations are the optimizer's search variables; they should not automatically be interpreted as a model of physical uncertainty.
+
+---
+
+## Why exponential weights appear
+
+Define
+
+\begin{equation}
+Z=\int \exp[-S(V)/\lambda]p(V)\,dV,
+\qquad
+q^\star(V)=\frac1Z\exp[-S(V)/\lambda]p(V).
+(\#eq:mppi-target)
+\end{equation}
+
+We require \(0<Z<\infty\). The integral is over all \(mH\) input coordinates. The factor \(Z\) makes \(q^\star\) integrate to one.
+
+This distribution gives more weight to lower-cost sequences while retaining the reference density. It is Equation (3) of Kim et al. The following calculation explains precisely which optimization problem it solves.
+
+For two densities \(r\) and \(p\), define the **Kullback--Leibler divergence** as
+
+\begin{equation}
+D_{\mathrm{KL}}(r\|p)=\int r(V)\log\frac{r(V)}{p(V)}\,dV.
+\end{equation}
+
+It is nonnegative, equals zero when the densities agree almost everywhere, and is generally not symmetric. One way to see nonnegativity is to use \(-\log z\geq1-z\) with \(z=p/r\), then integrate with respect to \(r\). For positive Gaussian reference densities there is no support ambiguity in the formulas used here.
+
+Taking the logarithm of Equation \@ref(eq:mppi-target) gives
+
+\begin{equation}
+\log\frac{q^\star(V)}{p(V)}=-\frac{S(V)}\lambda-\log Z.
+\end{equation}
+
+Substitution into the definition of divergence yields
+
+\begin{equation}
+\mathbb E_r[S]+\lambda D_{\mathrm{KL}}(r\|p)
+=-\lambda\log Z+\lambda D_{\mathrm{KL}}(r\|q^\star).
+(\#eq:mppi-variational)
+\end{equation}
+
+The right side is minimized by \(r=q^\star\). Thus \(q^\star\) minimizes **expected state cost plus a penalty for changing the reference distribution**. The quantity \(-\lambda\log Z\) is called free energy in this formulation. Its definition and role are fully given by this identity; no thermodynamics background is needed.
+
+For the fixed-covariance Gaussian family in Equation \@ref(eq:mppi-proposal), direct Gaussian integration gives
+
+\begin{equation}
+\lambda D_{\mathrm{KL}}(q_U\|p)
+=\frac\lambda2\sum_{t=0}^{H-1}u_t^\top\Sigma^{-1}u_t.
+(\#eq:mppi-input-penalty)
+\end{equation}
+
+This explains the quadratic mean-input penalty associated with the reference covariance. It also explains why temperature and reference covariance affect more than numerical behavior.
+
+There are two different optimizations here. Equation \@ref(eq:mppi-variational) optimizes over all admissible densities. The Gaussian approximation below projects that target onto a restricted family using the opposite divergence direction. It does **not**, in general, exactly minimize Equation \@ref(eq:mppi-variational) over Gaussian means, nor exactly solve an arbitrary deterministic MPC problem.
+
+---
+
+## Why the update is a weighted mean
+
+We approximate the target by a Gaussian with adjustable mean \(M=(m_0,\ldots,m_{H-1})\) and fixed covariance. Choose
+
+\begin{equation}
+M^\star=\arg\min_M D_{\mathrm{KL}}(q^\star\|q_M).
+\end{equation}
+
+The direction matters: the expectation in this expression is under \(q^\star\). Terms independent of \(M\) can be removed. The remaining objective is
+
+\begin{equation}
+\frac12\sum_{t=0}^{H-1}
+\mathbb E_{q^\star}\!\left[(v_t-m_t)^\top\Sigma^{-1}(v_t-m_t)\right].
+\end{equation}
+
+Differentiating with respect to the vector \(m_t\) gives
+
+\begin{equation}
+\Sigma^{-1}\big(m_t-\mathbb E_{q^\star}[v_t]\big)=0.
+\end{equation}
+
+Because \(\Sigma\) is positive definite,
+
+\begin{equation}
+m_t^\star=\mathbb E_{q^\star}[v_t].
+(\#eq:mppi-target-mean)
+\end{equation}
+
+This is the mean-matching step behind Kim et al., Equations (5)--(8). It requires the target's first moment to exist.
+
+We cannot usually draw directly from \(q^\star\): its normalizing integral and useful regions are unknown. Applying importance sampling instead gives
+
+\begin{equation}
+\mathbb E_{q^\star}[v_t]
+=\frac{\mathbb E_{q_U}\!\left[e^{-S(V)/\lambda}\frac{p(V)}{q_U(V)}v_t\right]}
+{\mathbb E_{q_U}\!\left[e^{-S(V)/\lambda}\frac{p(V)}{q_U(V)}\right]}.
+(\#eq:mppi-ratio)
+\end{equation}
+
+The unknown \(Z\) has canceled. This ratio can be estimated using the same batch in its numerator and denominator. The resulting normalized estimator is generally biased for finite \(K\), although it is consistent under the usual integrability conditions as \(K\) grows.
+
+---
+
+## Deriving the correction in the sampled cost
+
+For one prediction step, cancel the common Gaussian normalization factors:
+
+\begin{equation}
+\log\frac{p(v_t)}{q_U(v_t)}
+=-\frac12v_t^\top\Sigma^{-1}v_t
++\frac12(v_t-u_t)^\top\Sigma^{-1}(v_t-u_t).
+\end{equation}
+
+Expand the quadratic and substitute \(v_t=u_t+\epsilon_t\):
+
+\begin{equation}
+\log\frac{p(v_t)}{q_U(v_t)}
+=-\frac12u_t^\top\Sigma^{-1}u_t-u_t^\top\Sigma^{-1}\epsilon_t.
+\end{equation}
+
+The logarithm of a product is the sum of logarithms, so the same terms add over the horizon. The unnormalized weight is therefore
+
+\begin{equation}
+\exp\!\left\{-\frac1\lambda\left[S(V)
++\frac\lambda2\sum_t u_t^\top\Sigma^{-1}u_t
++\lambda\sum_tu_t^\top\Sigma^{-1}\epsilon_t\right]\right\}.
+\end{equation}
+
+Within one batch, \(U\) is fixed. The term \(\frac\lambda2\sum_tu_t^\top\Sigma^{-1}u_t\) is identical for every sample and cancels when weights are normalized. Consequently, the score that needs to be computed is
+
+\begin{equation}
+C_k=S(V^{(k)})+\lambda\sum_{t=0}^{H-1}u_t^\top\Sigma^{-1}\epsilon_t^{(k)}.
+(\#eq:mppi-score)
+\end{equation}
+
+This is Kim et al., Equation (10). The cross term can be negative. That is not an error: it is part of a log density ratio, rather than an independently nonnegative physical cost.
+
+A state-cost-only weighting rule, \(w_k\propto e^{-S(V^{(k)})/\lambda}\), omits this correction. Unless the correction is constant across samples, that rule estimates a different target. Adding a separately chosen quadratic cost to every sampled physical action also changes the objective; it does not recover the missing ratio automatically.
+
+### Numerically stable weights
+
+Let \(\beta=\min_k C_k\). Compute
+
+\begin{equation}
+\widetilde w_k=\exp\!\left[-\frac{C_k-\beta}\lambda\right],
+\qquad
+w_k=\frac{\widetilde w_k}{\sum_{j=1}^{K}\widetilde w_j}.
+(\#eq:mppi-weights)
+\end{equation}
+
+Subtracting \(\beta\) multiplies all unnormalized weights by the same factor, so it leaves the normalized weights unchanged. For finite scores, the smallest score has exponential weight one and every other exponential lies in \([0,1]\). This avoids overflow and avoids all weights underflowing to zero simultaneously. Kim et al. use this subtraction in Equation (9).
+
+The mean update is
+
+\begin{equation}
+u_t^{i+1}=\sum_{k=1}^{K}w_kv_t^{(k)}
+=u_t^i+\sum_{k=1}^{K}w_k\epsilon_t^{(k)}.
+(\#eq:mppi-update)
+\end{equation}
+
+The same trajectory weight multiplies every time entry of that sampled sequence. This whole-sequence estimator is the discrete formulation used here. Williams et al. also write path-integral feedback expressions using costs-to-go from an intermediate time; those expressions should not be mixed silently with a whole-sequence density derivation.
+
+<div style="background-color:#e8e6f5; padding:16px; border-radius:10px; margin-top:12px; margin-bottom:12px;">
+
+**Example 2: One scalar update**
+
+Let \(H=1\), \(u_0=1\), \(\Sigma=1\), and \(\lambda=1\). Suppose three sampled perturbations are \((-1,0,1)\), producing inputs \((0,1,2)\), with state costs \((4,1,0)\).
+
+Equation \@ref(eq:mppi-score) gives corrected scores \((3,1,1)\). Thus
+
+\begin{equation}
+(w_1,w_2,w_3)=\frac{(e^{-2},1,1)}{e^{-2}+2}
+\approx(0.0634,0.4683,0.4683).
+\end{equation}
+
+The updated mean is \(u_0^+=0w_1+1w_2+2w_3\approx1.405\). Omitting the correction would instead give approximately \(1.708\). Both computations favor lower state costs, but only the first estimates the target derived above.
+
+</div>
+
+---
+
+## Changing the sampling covariance
+
+The reference distribution and the distribution used to draw samples need not have the same covariance. This is the main importance-sampling extension developed by Williams et al. [@williams2015, Sec. III; @williams2017, Sec. III]. Here we derive its discrete input-space version directly from Gaussian densities.
+
+Keep the reference covariance \(\Sigma\), but draw from a proposal with covariance \(\Sigma_s\):
+
+\begin{equation}
+p(V)=\prod_t\mathcal N(v_t;0,\Sigma),\qquad
+q_{U,\Sigma_s}(V)=\prod_t\mathcal N(v_t;u_t,\Sigma_s).
+\end{equation}
+
+Both matrices are fixed, positive definite, and independent of the sampled trajectory. Expanding \(\lambda\log(q/p)\) gives
+
+\begin{equation}
+\begin{aligned}
+\lambda\log\frac{q_{U,\Sigma_s}(V)}{p(V)}
+={}&\frac{\lambda H}{2}\log\frac{|\Sigma|}{|\Sigma_s|}
++\frac\lambda2\sum_tu_t^\top\Sigma^{-1}u_t\\
+&+\lambda\sum_tu_t^\top\Sigma^{-1}\epsilon_t
++\frac\lambda2\sum_t\epsilon_t^\top(\Sigma^{-1}-\Sigma_s^{-1})\epsilon_t.
+\end{aligned}
+\end{equation}
+
+The determinant term and the mean-only quadratic are constant across this batch. They cancel in normalized weights. The score becomes
+
+\begin{equation}
+C_k=S(V^{(k)})+\lambda\sum_tu_t^\top\Sigma^{-1}\epsilon_t^{(k)}
++\frac\lambda2\sum_t(\epsilon_t^{(k)})^\top
+(\Sigma^{-1}-\Sigma_s^{-1})\epsilon_t^{(k)}.
+(\#eq:mppi-general-covariance)
+\end{equation}
+
+For the scalar covariance multiplier \(\nu>0\), set \(\Sigma_s=\nu\Sigma\). Then
+
+\begin{equation}
+C_k=S(V^{(k)})+\lambda\sum_tu_t^\top\Sigma^{-1}\epsilon_t^{(k)}
++\frac\lambda2(1-\nu^{-1})\sum_t(\epsilon_t^{(k)})^\top\Sigma^{-1}\epsilon_t^{(k)}.
+(\#eq:mppi-covariance-score)
+\end{equation}
+
+Here \(\nu\) multiplies **variance**, so sampled standard deviations are multiplied by \(\sqrt\nu\). Setting \(\nu=1\) recovers Equation \@ref(eq:mppi-score). Changing only \(\nu\) changes the proposal while retaining the target. Changing \(\Sigma\) changes the reference distribution and hence the target itself.
+
+If covariance depends on the sampled state, terms that were constant here may no longer cancel. Correlating perturbations across prediction steps likewise requires a density for the full sequence covariance. The independent-step formula above cannot simply be reused after filtering the noise.
+
+---
+
+## Where the name “path integral” comes from
+
+The preceding derivation is sufficient to implement the discrete controller. We now connect it to the continuous-time optimal-control problem in the two Williams papers. This connection has additional assumptions.
+
+### Stochastic dynamics and expected cost
+
+Use \(s\) for continuous time and \(T_f\) for final time. The original dynamics are
+
+\begin{equation}
+dx_s=\big[f(x_s,s)+G(x_s,s)u_s\big]ds+B(x_s,s)\,d\mathcal W_s.
+(\#eq:mppi-stochastic-dynamics)
+\end{equation}
+
+The matrices \(G\in\mathbb R^{n\times m}\) and \(B\in\mathbb R^{n\times d}\) map control and random disturbance into changes of state. The process \(\mathcal W_s\in\mathbb R^d\) is Brownian motion, and \(I_d\) is the \(d\times d\) identity matrix. A Brownian increment satisfies \(\mathcal W_{s+\Delta t}-\mathcal W_s\sim\mathcal N(0,\Delta t I_d)\), with independent increments on disjoint intervals. Thus a time-discretized disturbance has size proportional to \(\sqrt{\Delta t}\), not \(\Delta t\).
+
+The value function \(W(x,s)\) is the least expected remaining cost from state \(x\) at time \(s\):
+
+\begin{equation}
+W(x,s)=\inf_u\mathbb E\!\left[
+\phi(x_{T_f})+\int_s^{T_f}\left(\ell(x_\tau,\tau)
++\tfrac12u_\tau^\top R(x_\tau,\tau)u_\tau\right)d\tau
+\;\middle|\;x_s=x\right].
+\end{equation}
+
+Here \(R\) is positive definite, \(\ell\) is a running state cost per second, and the infimum is over admissible feedback controls. This is Williams et al. (2017), Equations (1)--(3).
+
+### The local optimality equation
+
+The principle is to minimize the expected cost over a short first interval plus the best remaining cost afterward. Let \(W_x\) be the column vector of first state derivatives, \(W_{xx}\) the matrix of second state derivatives, and \(W_s\) the time derivative. A second-order expansion of the expected remaining value gives
+
+\begin{equation}
+\mathbb E[dW]=\left[W_s+(f+Gu)^\top W_x
++\tfrac12\operatorname{tr}(BB^\top W_{xx})\right]ds.
+\end{equation}
+
+The trace \(\operatorname{tr}(M)\) is the sum of a square matrix's diagonal entries. The second-derivative term remains because the disturbance covariance is \(BB^\top ds\). This is the local expectation rule needed here from stochastic calculus.
+
+Equating the optimal short-interval change to zero gives the Hamilton--Jacobi--Bellman equation:
+
+\begin{equation}
+-W_s=\min_u\left[\ell+\tfrac12u^\top Ru+(f+Gu)^\top W_x
++\tfrac12\operatorname{tr}(BB^\top W_{xx})\right],
+\qquad W(x,T_f)=\phi(x).
+\end{equation}
+
+For an unconstrained input, differentiating its quadratic expression gives
+
+\begin{equation}
+u^\star=-R^{-1}G^\top W_x.
+\end{equation}
+
+Substituting this minimizer back yields
+
+\begin{equation}
+-W_s=\ell+f^\top W_x-\tfrac12W_x^\top GR^{-1}G^\top W_x
++\tfrac12\operatorname{tr}(BB^\top W_{xx}).
+(\#eq:mppi-hjb)
+\end{equation}
+
+These formal calculations assume sufficient smoothness for the derivatives and expectations to exist. They explain the equation used by Williams et al.; they are not a claim that every nonsmooth obstacle cost has a classical differentiable value function.
+
+### The assumption that makes the equation linear
+
+Define a positive function \(\Psi\) through \(W=-\lambda\log\Psi\). Then
+
+\begin{equation}
+W_s=-\frac\lambda\Psi\Psi_s,\qquad
+W_x=-\frac\lambda\Psi\Psi_x,\qquad
+W_{xx}=-\frac\lambda\Psi\Psi_{xx}
++\frac\lambda{\Psi^2}\Psi_x\Psi_x^\top.
+\end{equation}
+
+Substitution into Equation \@ref(eq:mppi-hjb) produces two terms quadratic in \(\Psi_x\). They cancel exactly when
+
+\begin{equation}
+BB^\top=\lambda GR^{-1}G^\top.
+(\#eq:mppi-matching)
+\end{equation}
+
+The same substitution also gives \(u^\star=\lambda R^{-1}G^\top\Psi_x/\Psi\). Thus a spatial derivative of the trajectory expectation determines the optimal feedback input under these assumptions.
+
+Under this **noise--control matching condition**, the remaining equation is linear in \(\Psi\):
+
+\begin{equation}
+\Psi_s=\frac\ell\lambda\Psi-f^\top\Psi_x
+-\tfrac12\operatorname{tr}(BB^\top\Psi_{xx}),
+\qquad \Psi(x,T_f)=e^{-\phi(x)/\lambda}.
+\end{equation}
+
+A linear backward equation of this form has an expectation representation, given by the Feynman--Kac formula:
+
+\begin{equation}
+\Psi(x,s)=\mathbb E_p\!\left[
+\exp\!\left(-\frac1\lambda\left[\phi(x_{T_f})+
+\int_s^{T_f}\ell(x_\tau,\tau)d\tau\right]\right)
+\;\middle|\;x_s=x\right].
+(\#eq:mppi-path-integral)
+\end{equation}
+
+The expectation is over trajectories of the **uncontrolled** diffusion \(dx=f\,ds+B\,d\mathcal W\). It integrates over possible paths, rather than over a single state. This is the path integral in the algorithm's name. Sampling forward trajectories approximates this expectation without solving a state-space partial differential equation on a grid. Williams et al. (2017), Section II, derive this transformation and the resulting control expressions.
+
+The matching condition is restrictive: the disturbance must act in state directions that the control can influence, with an appropriate relationship to the control penalty. If it fails, this particular linearization does not follow. A controller can still use the discrete sampling construction for a general model \(F\); the original continuous-time optimality result cannot then be assumed.
+
+### Relating time step, covariance, and control penalty
+
+Suppose noise enters through the same input channels as control. An Euler--Maruyama step can be written
+
+\begin{equation}
+x_{t+1}=x_t+f(x_t)\Delta t+G(x_t)(u_t+\epsilon_t)\Delta t.
+\end{equation}
+
+To match Equation \@ref(eq:mppi-matching), the reference input perturbations satisfy
+
+\begin{equation}
+\operatorname{Cov}(\epsilon_t)=\Sigma
+=\frac\lambda{\Delta t}R^{-1},
+\qquad R\Delta t=\lambda\Sigma^{-1}.
+\end{equation}
+
+The factor \(1/\Delta t\) appears because an input acts for \(\Delta t\), while the Brownian increment covariance scales as \(\Delta t\). With proposal covariance \(\nu\Sigma\), the corrected per-step cost can be written
+
+\begin{equation}
+\Delta t\left[\ell(x_t)+\tfrac12u_t^\top Ru_t
++u_t^\top R\epsilon_t
++\tfrac12(1-\nu^{-1})\epsilon_t^\top R\epsilon_t\right].
+\end{equation}
+
+This is the special-case running cost in Williams et al. (2017), Section III.C. Removing the common mean-only term recovers Equation \@ref(eq:mppi-covariance-score). The tutorial uses the discrete input-density formulation; it does not claim that its chosen noise represents a physical Brownian process satisfying this matching condition.
+
+---
+
+## The complete receding-horizon algorithm
+
+At a control step, carry a mean sequence \(U\) from the preceding step. Initialize it to zero for the first step, unless a useful initial guess is available.
+
+1. Read the current state and set every rollout's \(x_0\) to that state.
+2. Draw \(K\) independent perturbation sequences. For the covariance-scaled version, draw each \(\epsilon_t^{(k)}\sim\mathcal N(0,\nu\Sigma)\).
+3. Form \(V^{(k)}=U+E^{(k)}\), simulate all trajectories, and compute their state costs.
+4. Add the appropriate density-ratio correction to obtain \(C_k\).
+5. Normalize exponential weights using Equation \@ref(eq:mppi-weights).
+6. Update every mean input using Equation \@ref(eq:mppi-update). If desired, repeat steps 2--6 from the same measured state with fresh random samples.
+7. Apply the first physical input corresponding to the final mean sequence.
+8. After one control interval, discard the first mean input, shift the remaining entries forward, and fill the last entry using an initialization rule. Read the new state and repeat.
+
+The code repeats the last entry when filling the tail. This is a specified implementation choice, not an optimized terminal policy. Shifting must happen **once per applied control interval**, not once per optimization iteration.
+
+Within one rollout, \(x_{t+1}\) depends on \(x_t\), so the prediction steps are sequential. Different rollouts start from the same state and can be computed independently. This is the parallel computation emphasized in Williams et al., Section V. The JAX implementation uses `lax.scan` over time and `vmap` over samples, then compiles the update with `jit`.
+
+---
+
+## Bounded inputs and obstacles
+
+### Bounded physical inputs need an explicit model
+
+A Gaussian has unbounded support. Clipping samples changes their distribution. Thus a clipped input is not still distributed according to the Gaussian density used above.
+
+The tutorial keeps an unbounded Gaussian coordinate \(v_t\), defines the physical input through
+
+\begin{equation}
+a_t=g(v_t)=\operatorname{clip}(v_t,a_{\min},a_{\max}),
+\qquad x_{t+1}=F(x_t,g(v_t)),
+\end{equation}
+
+and computes all density ratios and mean updates in the **original coordinate** \(v_t\). Here `clip` limits each component to its stated interval. The state cost is therefore the cost of a rollout under the composite model \(F(x,g(v))\). This is a transparent bounded-action implementation of the discrete distribution calculation.
+
+The applied input is \(g(u_0^+)\). In general,
+
+\begin{equation}
+g\!\left(\sum_kw_kv_t^{(k)}\right)
+\neq\sum_kw_kg(v_t^{(k)}).
+\end{equation}
+
+This implementation choice differs from averaging clipped sampled inputs, as done in the racing reference. It also differs from replacing the raw perturbation by \(g(u_t+\epsilon_t)-u_t\) in a Gaussian density-ratio formula. The latter replacement needs a new derivation or an explicit approximation statement. Kim et al., Section III.A, discuss bounded perturbations and the complications introduced by external smoothing.
+
+### Obstacle penalties are not safety guarantees
+
+A finite obstacle penalty can discourage collisions, but a collision may still have nonzero weight. Even if two sampled paths avoid an obstacle on opposite sides, their mean input sequence may generate a path through it. Nonlinear dynamics make averaging inputs different from averaging state trajectories.
+
+The examples re-simulate the updated mean for display. They also report clearance along the straight segments between executed sample positions. This helps identify failures; it is not a proof of continuous-time safety. MPPI alone in this tutorial does not include the safety checks or acceptance logic of the gatekeeper repositories.
+
+---
+
+## Smooth MPPI
+
+Kim et al. study rapid changes in the control sequence and propose **SMPPI**. Their construction changes the coordinates in which perturbations are sampled and adds a penalty on differences between neighboring physical actions [@kim2022, Sec. III.B].
+
+Maintain two sequences: a sampled-coordinate mean \(U^i\) and a physical action sequence \(A^i\). For one candidate, form
+
+\begin{equation}
+v_t^{(k)}=u_t^i+\epsilon_t^{(k)},\qquad
+ a_t^{(k)}=a_t^i+\Delta t\,v_t^{(k)}.
+(\#eq:mppi-smooth-samples)
+\end{equation}
+
+The entries of \(U\) now have units of action per second. Equation \@ref(eq:mppi-smooth-samples) changes each entry of the stored action sequence during an optimization iteration. In the supplied paper's Equations (16)--(18) and Algorithm 1, it is **not** a cumulative sum along prediction time, \(a_t=a_{t-1}+\Delta t v_t\). Keeping the iteration index \(i\) separate from prediction index \(t\) prevents this common ambiguity.
+
+For a symmetric positive semidefinite matrix \(\Omega_a\in\mathbb R^{m\times m}\), define
+
+\begin{equation}
+\Omega(A)=\sum_{t=1}^{H-1}(a_t-a_{t-1})^\top\Omega_a(a_t-a_{t-1}).
+(\#eq:mppi-smooth-cost)
+\end{equation}
+
+Positive semidefinite means that the quadratic is nonnegative, allowing zero weights in some directions. The paper uses a diagonal matrix called \(\omega\); we use \(\Omega_a\) to distinguish it from angular velocity. This penalty measures successive action differences, rather than the statistical variance around an action mean.
+
+Let \(S_A(V)\) denote the state cost obtained by rolling out \(A^i+\Delta t V\). With equal reference and proposal covariances, the candidate score is
+
+\begin{equation}
+C_k=S_A(V^{(k)})+\Omega(A^i+\Delta t V^{(k)})
++\lambda\sum_t(u_t^i)^\top\Sigma^{-1}\epsilon_t^{(k)}.
+(\#eq:mppi-smooth-score)
+\end{equation}
+
+Normalize the weights as before, then update
+
+\begin{equation}
+u_t^{i+1}=u_t^i+\sum_kw_k\epsilon_t^{(k)},\qquad
+ a_t^{i+1}=a_t^i+\Delta t\,u_t^{i+1}.
+(\#eq:mppi-smooth-update)
+\end{equation}
+
+These are Kim et al., Equations (15)--(18), rewritten with our horizon notation. Action differences are evaluated **inside the optimization**, so the model predicts their effect on the state trajectory. Filtering a sequence afterward would change actions without evaluating that changed trajectory in the same optimization step.
+
+The paper applies clamping to physical actions. The companion implementation evaluates clipped actions in both rollout and smoothing cost, updates the raw Gaussian-coordinate mean, then clips the updated physical sequence. This bounded variant is stated explicitly. At \(\nu\neq1\) it also uses the covariance correction derived above. Those clipping and covariance choices should not be mistaken for a reproduction of the paper's experimental code.
+
+The sum in Equation \@ref(eq:mppi-smooth-cost) starts at \(t=1\). It does not penalize the difference between the previously executed action and the new first action. Neither this soft penalty nor the derivative-coordinate notation alone imposes a hard action-rate bound. The tutorial reports actual applied-action variation so that this behavior can be inspected.
+
+---
+
+## Choosing parameters and interpreting failures
+
+A parameter changes a specific part of the calculation. It helps to identify that part before changing the parameter.
+
+| Parameter | Mathematical effect | What to inspect |
+|:---|:---|:---|
+| \(H\) | Changes how far the model predicts | Does the horizon contain the turn, braking maneuver, or swing-up? |
+| \(K\) | Changes the number of sampled sequences | Are useful behaviors represented in the batch? |
+| \(\lambda\) | Changes the target's preference for low cost relative to its reference density | Are weights concentrated on very few samples? |
+| \(\Sigma\) | Changes reference spread and the associated mean-input penalty | Do sampled actions cover useful directions and magnitudes? |
+| \(\nu\) | Changes proposal covariance with the target held fixed | Does broader exploration actually improve the estimator? |
+| Update count | Repeats sampling and fitting at one state | Is the added computation useful before the next control deadline? |
+| \(\Omega_a\) | Penalizes neighboring physical-action differences in SMPPI | How do motion quality and applied-action variation change? |
+
+For two fixed corrected scores, \(w_j/w_k=\exp[-(C_j-C_k)/\lambda]\). However, corrected scores themselves contain \(\lambda\). Changing temperature must therefore be understood through the full target and correction formulas, not only through a softmax with fixed numbers.
+
+As a diagnostic, the implementation reports
+
+\begin{equation}
+N_{\mathrm{eff}}=\frac1{\sum_{k=1}^{K}w_k^2}.
+\end{equation}
+
+This **effective sample size** is \(K\) for uniform weights and approaches one when a single weight dominates. It is an implementation diagnostic computed from the normalized weights, not a new control theorem or a guarantee of good motion. Large effective sample size can also mean that all samples are similarly poor.
+
+A Gaussian approximation can struggle when several distinct input sequences are useful. For example, passing left and passing right around an obstacle can form separate groups of low-cost sequences. Their weighted mean may lie between the groups. More samples improve estimation of a mean; they do not make that mean represent two separate choices.
+
+If some simulated costs are nonfinite, the implementation gives those samples zero weight. If every score is nonfinite, it reports failure and the demonstration stops before applying a new input. This is numerical error handling, not a certified fallback controller.
+
+The supplied papers show results for their own models, cost choices, and computing hardware. They do not imply that every finite sample update improves the original objective, that every toy configuration reaches its goal, or that a chosen sample count will meet a real-time deadline on every machine.
+
+---
+
+## From these equations to the implementation
+
+The accompanying [JAX implementation tutorial](https://github.com/kalebbennaveed/planning-algorithms-library/tree/main/planning-algorithm-tutorial/mppi) contains an installable `uv` project, three environments, numerical tests, and a local browser playground. Its [website walkthrough](https://kalebbennaveed.github.io/planning-algorithm-tutorial/mppi/) maps the equations to the code.
+
+| This chapter | Implementation |
+|:---|:---|
+| \(x_{t+1}=F(x_t,a_t)\), state and terminal costs | `envs.py` |
+| Sequential rollout and accumulated state cost | `MPPI.rollout` in `core.py` |
+| Equation \@ref(eq:mppi-covariance-score) | `corrected_scores` |
+| Equation \@ref(eq:mppi-weights) | `normalized_weights` |
+| Equation \@ref(eq:mppi-update) | `update_with_noise` |
+| Apply first input and shift once | `run_episode` in `demo.py` |
+| Equations \@ref(eq:mppi-smooth-samples)--\@ref(eq:mppi-smooth-update) | `mode="smppi"` |
+
+Start with the double integrator, inspect one predicted path, and compare it with the executed path. Then change one sampling parameter at a time while keeping the seed fixed. The unicycle changes the dynamics; pendulum swing-up makes the need to plan beyond the next instant especially visible.
+
+## Source guide {#mppi-source-guide}
+
+The derivations above use these specific parts of the supplied papers:
+
+- **Williams, Aldrich, and Theodorou (2015 preprint)**, *Model Predictive Path Integral Control using Covariance Variable Importance Sampling*, supplied as `1509.01149v3.pdf`: Section II for the stochastic control problem and path-integral representation; Section III for changing the sampling drift and diffusion; Section IV for the receding-horizon algorithm. [Supplied arXiv version](https://arxiv.org/abs/1509.01149v3).
+- **Williams, Aldrich, and Theodorou (2017)**, *Model Predictive Path Integral Control: From Theory to Parallel Computation*: Section II, especially Equations (1)--(16), for the exponential value transformation and matching condition; Section III and Equations (33)--(34) for importance sampling and the weighted perturbation update; Section III.C for the covariance-scaled running cost; Section V and Algorithm 1 for parallel computation and MPC. [Journal article](https://doi.org/10.2514/1.G001921).
+- **Kim, Park, Kwak, Bae, and Lee (2022; supplied arXiv v8)**, *Smooth Model Predictive Path Integral Control without Smoothing*: Section II, Equations (1)--(10), for discrete input densities, target distribution, and importance weights; Section III, Equations (11)--(18) and Algorithm 1, for bounded actions, smoothing, and the separate action sequence. [Supplied arXiv version](https://arxiv.org/abs/2112.09988v8), [journal article](https://doi.org/10.1109/LRA.2022.3192800).
+
+The source papers motivate and derive the algorithms. The accompanying toy models, numerical parameters, browser interface, diagnostic checks, and tests are teaching additions, identified as such in the implementation tutorial.
+
+## References {-}
+
+<div id="refs"></div>
