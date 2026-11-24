@@ -2,6 +2,38 @@ p.caption {
   color: #777;
   margin-top: 10px;
 }
+
+/* Keep long mathematics and comparison tables within the book's reading column. */
+.ml-prep .math.display,
+.ml-prep table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.ml-prep .math.display { padding: .35em 0; }
+.ml-prep td { vertical-align: top; }
+.ml-score-lab {
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  padding: 1em 1.2em;
+  margin: 1.2em 0;
+}
+.ml-score-lab label { font-weight: 600; }
+.ml-range {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  margin: .6em 0 1em;
+}
+.ml-range input { flex: 1; min-width: 0; accent-color: #3972ac; }
+.ml-range output { min-width: 3em; text-align: right; }
+.ml-readouts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(125px, 1fr));
+  gap: .8em;
+}
+.ml-readouts strong { display: block; font-size: 1.25em; }
+.ml-score-lab output { font-variant-numeric: tabular-nums; color: inherit; }
 p code {
   white-space: inherit;
 }

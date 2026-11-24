@@ -1,0 +1,89 @@
+# Research Scientist Interview Practice {#ml-interview-practice .ml-prep}
+
+Use a blank sheet of paper for the first attempt. For every answer, give an example small enough that someone could check it, then say how the result might change on real driving data. When discussing your own work, distinguish what you implemented, what collaborators contributed, and what the experiment established.
+
+[Technical exercises](#ml-technical-exercises) · [Oral drills](#ml-oral-drills) · [Paper critique](#ml-paper-critique) · [Timed mock](#ml-mock)
+
+## Three technical exercises {#ml-technical-exercises}
+
+### Implement a masked trajectory metric
+
+**Prompt.** Given \(K\) predicted paths of length \(T\), a reference path, and a validity mask, return the minimum ADE and the winning path's index. Define what happens if there are no valid reference points. How would you change this for a joint forecast?
+
+**Worked solution.** This Python example expects aligned paths and one shared reference validity mask. Each point is an \((x,y)\) pair in the same metric frame. It raises an error for undefined scores and breaks ties in input order.
+
+~~~python
+from math import hypot
+
+def minimum_ade(paths, reference, valid):
+    if len(valid) != len(reference):
+        raise ValueError("Reference and mask must have the same length")
+    steps = [t for t, observed in enumerate(valid) if observed]
+    if not paths or not steps:
+        raise ValueError("At least one path and one valid step are required")
+    scores = []
+    for path in paths:
+        if len(path) != len(reference):
+            raise ValueError("All paths must use the same time grid")
+        total = sum(hypot(path[t][0] - reference[t][0],
+                          path[t][1] - reference[t][1]) for t in steps)
+        scores.append(total / len(steps))
+    winner = min(range(len(paths)), key=scores.__getitem__)
+    return scores[winner], winner
+
+paths = [[(2, 0), (7, 0)], [(4, 0), (4, 0)]]
+assert minimum_ade(paths, [(2, 0), (4, 0)], [True, True]) == (1.0, 1)
+assert minimum_ade(paths, [(2, 0), (4, 0)], [True, False]) == (0.0, 0)
+~~~
+
+It takes \(O(KT)\) time. The list stores \(K\) scores and the mask selects at most \(T\) indices. For a joint forecast the hypothesis index identifies a *whole scene*. Score all required agents within that hypothesis using the specified weighting and masks, then choose one hypothesis. Picking different indices per agent answers an easier question.
+
+### Derive the gradient for a yield prediction
+
+**Prompt.** A binary model produces a real number \(z\), called a logit. The sigmoid turns it into \(p=1/(1+e^{-z})\), the probability of yield. Starting from binary cross-entropy, derive the derivative with respect to \(z\). Why is a confidently wrong prediction a strong training signal?
+
+**Worked solution.** Let \(y=1\) for yield and 0 otherwise. Write \(L=-y\log p-(1-y)\log(1-p)\). The derivative with respect to \(p\) is \(-y/p+(1-y)/(1-p)\). Multiply by \(dp/dz=p(1-p)\) and cancel terms to get \(dL/dz=p-y\). For an observed yield with \(p=0.05\), the derivative is \(-0.95\). Gradient descent increases \(z\), raising the predicted yield probability. If the same example already has \(p=0.99\), the magnitude is only 0.01. In software, compute cross-entropy from logits using a numerically stable implementation. Calibrate predicted probabilities on separate data if the training set oversamples yields.
+
+### Debug an action-conditioned world model
+
+**Prompt.** A model has excellent one-step image reconstruction. Four-second forecasts barely change when steering is reversed. Give three hypotheses with tests that distinguish them.
+
+**Worked solution.** First check time alignment and coordinate conventions with a single recorded turn. A steering command may be paired with a frame captured before it takes effect. Second, ablate or shuffle the action input while keeping history fixed. If accuracy stays high on a data split dominated by straight driving, repeat on left/right branches with matched speed and layout. Third, verify the rollout uses the predictive prior after the branch. Passing a posterior computed from future logged frames can overpower either action. Measure signed heading changes, lane-relative displacement, and timing across the two branches. A model that renders texture faithfully can still fail these tests.
+
+## Short oral drills {#ml-oral-drills}
+
+| Question | What a precise answer should include |
+|:--|:--|
+| Why divide attention logits by the square root of key width? | Estimate dot-product variance under roughly independent, unit-variance coordinates. Explain softmax saturation, then compute one row of weights. |
+| Why might joint sampling help a planner? | Construct two equally likely yielding orders. Independent 50/50 decisions put both agents in the gap one quarter of the time. Describe one coherent scene sample. |
+| How does behavior cloning fail after an early error? | The policy visits states absent from demonstrations. Compare perturbation-and-recovery examples, expert correction on learner states, and closed-loop fine-tuning. State which needs an expert. |
+| A collision detector is a binary function. How can RL train against it? | Sample actions, score outcomes and weight gradients of action log probabilities by return or advantage. Discuss variance, a baseline and an independent success measure. |
+| A diffusion sampler doubles its number of steps. Will planning improve? | Measure denoising accuracy, feasible-plan coverage and selection separately. Measure control-loop latency and state staleness at the same hardware budget. |
+| Does a causal attention mask make a forecast causal? | It restricts the information flow in time. A shared signal or hidden intent may explain both drivers' actions. Propose a paired intervention and an independent reference. |
+| Two traffic simulators rank planners identically. Are both useful? | Ranking helps selection. Compare absolute event-rate errors, uncertainty and ranking under intervention. Both may miss the same rare interaction. |
+| Which experiment would make you abandon a favorite architecture? | Name a prediction in advance, a simpler baseline, matched data and compute, and the smallest effect worth the added complexity. Include failure slices and confidence intervals. |
+
+## A paper critique you can give in two minutes {#ml-paper-critique}
+
+**Try it.** A paper claims its controllable motion generator is better because applying a repulsion cost reduces predicted overlaps. What evidence would support that claim? What changed at training time and at inference time? Give a stronger test, then compare your answer with the example.
+
+**Example answer.** “MotionDiffuser learns a joint distribution over road users. At inference, the authors guide samples with a cost that pushes paths apart. In their 64-sample experiment overlap fell from 0.059 to 0.008, but the best joint average displacement error rose from 1.261 to 1.359 m. This supports controllability under that cost. To decide whether it helps planning, I would hold the generator fixed, sweep guidance with the same seeds and sample count, and feed the resulting distributions to the same planner. I would compare collision and progress jointly on held-out merges, then inspect cases where all vehicles slow down. If overlap falls mainly because the sampler removes assertive but valid futures, the planner may become overconfident.” [Jiang et al., Table 2](https://openaccess.thecvf.com/content/CVPR2023/papers/Jiang_MotionDiffuser_Controllable_Multi-Agent_Motion_Prediction_Using_Diffusion_CVPR_2023_paper.pdf#page=7)
+
+**Apply the same reasoning to your own research.** Prepare one result you trust and one that surprised you. For each, explain the problem in one sentence, draw the input/output boundary, identify your contribution and justify the baseline. Recover a numerical result and its denominator from your own records. End with the experiment you would run next and what different outcomes would imply. If an experiment failed, show which hypothesis the failure eliminated.
+
+## A 45-minute mock interview {#ml-mock}
+
+**Design prompt.** Build a system that can choose whether to enter an intersection with an intermittently occluded cyclist. You have logged drives, vector maps, a simple simulator that replays other traffic, and a fixed decision-time budget. Explain your first baseline, a learned extension, and the evidence you would require before preferring it.
+
+| Time | Candidate task | Follow-up to ask aloud |
+|:--|:--|:--|
+| 0–5 min | Draw observations, hidden state, available actions and decision deadline. Define a successful traversal. | Which inputs are available when the first action is chosen? |
+| 5–13 min | Specify a constant-velocity forecast and a route-following planner with an explicit yield rule. Choose the data split. | Which example will defeat your baseline, and why? |
+| 13–23 min | Sketch a joint forecaster, its tokens, visibility mask, output and loss. Explain how to sample coherent futures. | How will you know the model learned to use interactions? |
+| 23–32 min | Propose feasible ego trajectories, roll out other agents, select a plan and execute the first action. | What if the best maneuver is never sampled? What if traffic always gives way? |
+| 32–40 min | Choose metrics, counterfactual tests, baselines and uncertainty estimates. | Can your new system improve its score simply by stopping? |
+| 40–45 min | Offer a simpler alternative and one result that would change your decision. | With half the compute, what do you keep and what do you measure again? |
+
+**One defensible design.** Use a recent history window and a validity mask to represent the occlusion. Predict several joint futures, including continued crossing and stopping, and retain their probabilities. Generate ego proposals that obey vehicle limits and the route. Evaluate each proposal under several plausible cyclist reactions, compare risk at matched progress, execute the first control, and update with new observations. Start with log replay for a cheap regression suite. Branch selected cases in a responsive simulator and test sensitivity to its assumptions. Separate a missing maneuver, a misranked maneuver and a bad response model in the failure report. This argument gives each modeling choice a test that could disprove its value.
+
+**Score the rehearsal.** Give yourself 0, 1 or 2 points in each of five areas: problem definition, mathematical reasoning, experimental controls, choice of metrics, and interpretation of failure. Use 0 for missing, 1 for named, and 2 for explained with a concrete example or calculation. Repeat the lowest-scoring portion with a different scenario, such as two cars merging. A score measures your coverage of this rehearsal.

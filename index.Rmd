@@ -15,3 +15,5 @@ description: "My personal research and study notes."
 # Preface {-}
 
 Here is the list of topics.
+
+[Machine Learning Interview Prep](#machine-learning-interview-prep) starts with a first prediction from a driving log and builds toward a research scientist mock interview. The guide includes worked examples, paper walkthroughs, and a chapter on choosing evaluation metrics.

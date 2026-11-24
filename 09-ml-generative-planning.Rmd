@@ -1,0 +1,77 @@
+# Generative Planning {#ml-generative-planning .ml-prep}
+
+The cyclist reaches the crossing. A planner might generate several paths that slow down and several that proceed through a gap. Generating plausible options solves one problem. Choosing which option to execute requires a goal, constraints, and a model of what may happen when the car takes it.
+
+[Denoising](#ml-diffusion-basics) · [Guidance](#ml-guidance) · [Plan selection](#ml-proposal-selection) · [Diffuser](#ml-diffuser-paper) · [MotionDiffuser](#ml-motiondiffuser) · [Hierarchical imitation](#ml-hierarchical-planning) · [EMMA](#ml-emma)
+
+## Learn a distribution over complete paths {#ml-diffusion-basics}
+
+Let \(x_0\) denote a clean training example, such as two coordinates at each of 20 future waypoints. Here the subscript denotes **noise level**. Every \(x_s\) still contains the whole physical trajectory. Forward diffusion corrupts the example with a known amount of noise. Set \(\alpha_s=1-\beta_s\), where \(\beta_s\) is a small noise variance, and \(\bar\alpha_s=\prod_{i=1}^s\alpha_i\). A sample at level \(s\) can be drawn in one operation:
+
+\[
+x_s=\sqrt{\bar\alpha_s}\,x_0+\sqrt{1-\bar\alpha_s}\,\epsilon,\qquad
+\epsilon\sim\mathcal N(0,I).
+\]
+
+The symbols mean each coordinate receives an independent standard Gaussian draw before scaling. For normalized coordinate \(x_0=2\), \(\bar\alpha_s=0.64\), and noise draw \(\epsilon=-1\), the corrupted coordinate is \(0.8(2)+0.6(-1)=1.0\). A basic denoising network sees this value, the level and the scene context \(c\). Training minimizes the average squared difference between its prediction \(\epsilon_\theta(x_s,s,c)\) and the injected noise. A clean-data predictor is another parameterization. If our noise predictor returns \(-1\), the implied clean estimate is \((1.0-0.6(-1))/0.8=2\). A model cannot know the exact noise for every ambiguous example. It learns the conditional signal shared across many examples. [Ho et al., §3 and Algorithm 1](https://arxiv.org/pdf/2006.11239)
+
+At inference, start with noise of the trajectory's shape. At each step a **sampler** uses the denoiser and noise schedule to move toward a less noisy path. Different seeds generate different paths. The learned direction is related to the **score**, the gradient of log density with respect to the noisy sample. For the noise-prediction parameterization, the score estimate is \(-\epsilon_\theta/\sqrt{1-\bar\alpha_s}\). It points toward higher density at this noise level. A deterministic sampler can still produce diverse paths from different initial seeds. Denoising steps cost inference time even when all physical waypoints are updated together. [Denoising diffusion implicit models](https://arxiv.org/abs/2010.02502)
+
+## Three ways to specify what you want {#ml-guidance}
+
+1. **Conditioning.** Supply the observed scene and target route during training and sampling. The network learns which paths typically follow each route. If training almost always turns right in a particular lane, switch the command at that location and measure whether predictions change.
+2. **Inpainting.** Mark known entries, such as the initial state or a goal coordinate, and impose them during denoising using the sampler's conditioning rule. Nearby free entries adapt around them. Fixing an unreachable endpoint can still produce a path that exceeds the car's turning radius.
+3. **Guidance.** For a differentiable cost \(C(x)\), the target density proportional to \(p(x\mid c)\exp[-\lambda C(x)]\) has score \(\nabla\log p(x\mid c)-\lambda\nabla C(x)\). This identity explains the direction of cost guidance. Applying a cost to an estimated clean path inside a noisy sampler is an approximation. **Classifier-free guidance** instead combines conditional and unconditional scores, \(s_u+w(s_c-s_u)\), after training with conditioning dropout. Larger \(w\) emphasizes the condition and can reduce diversity. [Janner et al., §3](https://proceedings.mlr.press/v162/janner22a/janner22a.pdf) · [Ho and Salimans](https://arxiv.org/abs/2207.12598)
+
+## Turn proposals into a decision {#ml-proposal-selection}
+
+For each proposed ego control sequence, simulate several plausible responses from nearby agents. Check vehicle feasibility, route adherence, road boundaries and conflicts. Calculate progress and comfort over the surviving outcomes. Decide how to treat rare high-cost outcomes before selecting the action. Run the first control, observe what actually happened, and plan again. This is the same receding-horizon idea used in the [model predictive path integral control chapter](#model-predictive-path-integral-control). A learned proposal distribution can spend samples on realistic decisions that would be difficult to discover by perturbing a single control sequence.
+
+**A small decision you can audit.** In a toy simulator a cautious plan always costs 3. A quick plan costs 1 with probability 0.95 and 30 with probability 0.05. Lower is better. The expected cost of the quick plan is \(0.95+1.5=2.45\), so an expected-cost selector takes it. A selector minimizing mean cost in the worst 5% of outcomes chooses the cautious plan because \(3<30\). This worst-tail mean is an example of conditional value at risk (CVaR). With 20 independent samples, the probability of missing the adverse branch is \(0.95^{20}\approx0.36\). The sampler can omit the very event the risk rule needs. Stress-test those cases separately and report the sampling assumptions.
+
+| Planner design | Where alternatives come from | Experiment that exposes a weakness |
+|:--|:--|:--|
+| Autoregressive motion tokens | Sample one time step after another | Measure early token mistakes and long-horizon drift at fixed latency. |
+| Diffusion over trajectories | Refine all waypoints through several noise levels | Vary denoising steps and seeds. Count feasible candidates before selection. |
+| Sampling-based MPC | Perturb controls and propagate vehicle dynamics | Vary the initial nominal plan and inspect which maneuvers receive any samples. |
+| Mixture policy | Sample an action or path from a weighted component | Track distinct executed maneuvers and test commands under identical starting conditions. |
+
+**Diagnose a planner that stalls.** Save the generated candidates before scoring. If no candidate progresses through an available gap, inspect the generator and its constraints. If suitable candidates exist, inspect predicted reactions, collision costs and selection. If the selected plan makes progress but the vehicle stalls, check tracking and how replanning changes the command at the next tick. Run a constant candidate set through two scoring rules to isolate selection bias.
+
+## Diffuser and planning as trajectory inpainting {#ml-diffuser-paper}
+
+Janner et al. (ICML 2022) provide a planning example outside the driving benchmarks. Their model learns the structure of trajectory sequences from offline data. A temporal convolutional denoiser updates the whole horizon. Applying the same local filters at successive positions allows nearby trajectory segments to influence one another, while multiple layers extend how far information can travel. At test time a start and goal can be fixed during sampling. For reward-guided tasks, a learned return estimate biases sampling toward desirable outcomes. [Architecture and planning, §§3–4](https://proceedings.mlr.press/v162/janner22a/janner22a.pdf)
+
+In Maze2D-Large, Table 1 reports normalized scores of **123.0 for Diffuser, 58.6 for IQL, and 5.1 for MPPI** under the paper's configuration. A score above 100 exceeds a reference policy on that normalization. A maze with a distant reward can be hard for a shooting method even when it knows the dynamics, because few random trials reach the goal. The experiment provides evidence about long-horizon search in these mazes. A road intersection adds reacting participants and a tight decision deadline. An informative transfer experiment would give both planners the same response model and wall-clock budget and compare feasible-plan coverage before comparing executed returns. [Maze protocol, §5.1 and Table 1](https://proceedings.mlr.press/v162/janner22a/janner22a.pdf)
+
+## MotionDiffuser · Sample a shared future for interacting agents {#ml-motiondiffuser}
+
+At a narrow merge, either driver might go first. Sampling each driver's path independently could put both in the same gap. Jiang and colleagues (CVPR 2023) learn a distribution over a **whole set of trajectories**. One draw gives an internally related proposal for everybody. Draw again and the yielding order can change. The output is a forecast. Choosing the ego vehicle's action still requires judging the consequences of possible choices.
+
+### How the denoiser learns
+
+Start with recorded paths and express each in its agent's local frame. Principal component analysis (PCA) learns common directions of variation across paths. A few coefficients can then represent a long string of coordinates. Section 4.1 reports a mean reconstruction error of 0.06 m per waypoint with ten components. That measures how faithfully the code represents an *already known* path. Training adds Gaussian noise to trajectory codes and asks a transformer to recover the clean codes at different noise levels. Self-attention lets the agents exchange information. Cross-attention supplies map, signal and motion-history context. If you swap two input agents and their context, their output rows should swap too. This property is called *permutation equivariance*. [Paper, Figure 2 and Sections 3.2–4.1](https://openaccess.thecvf.com/content/CVPR2023/papers/Jiang_MotionDiffuser_Controllable_Multi-Agent_Motion_Prediction_Using_Diffusion_CVPR_2023_paper.pdf#page=4)
+
+### What guidance buys
+
+Imagine a penalty that grows whenever two vehicles get too close. During sampling, compute the penalty on the current estimate of clean paths and use its gradient to steer the next update toward lower cost. In the 64-sample experiment in Table 2, adding the repulsion cost lowered overlap from 0.059 to 0.008, while increasing the best joint average displacement error from 1.261 to 1.359 m. The sampler succeeded on the quantity it was steered to improve, with a measurable cost on another axis. [Paper, Table 2 and Section 4.3](https://openaccess.thecvf.com/content/CVPR2023/papers/Jiang_MotionDiffuser_Controllable_Multi-Agent_Motion_Prediction_Using_Diffusion_CVPR_2023_paper.pdf#page=7)
+
+**Interview question. How would you choose the strength of repulsion?** Keep scenes, sample counts, and initial noises fixed. Sweep the strength and plot overlap against forecast error and the frequency of yielding. Inspect crowded merges separately. A sampler that avoids overlap by making every vehicle stop could score well on overlap while producing poor traffic. Check the speed distribution and whether both yielding orders still appear.
+
+## Hierarchical planning and goal-directed imitation {#ml-hierarchical-planning}
+
+Bronstein et al. (2022) test whether an imitative planner can follow a new instruction at a familiar junction. The logged driver turned right. Now ask the model to go straight. A high-level router searches a graph of lane waypoints for a suitable route. A low-level policy uses that route, the surrounding actors and the map to sample the next change in pose. Separating these decisions gives the experimenter a specific input to change while holding the physical scene fixed. [Hierarchical Model-Based Imitation Learning for Planning in Autonomous Driving, §IV](https://arxiv.org/pdf/2210.09539#page=3)
+
+The policy predicts an eight-component Gaussian mixture. Each component describes a cluster of plausible actions by a centre and a spread, and each receives a probability weight. Sampling can preserve distinct choices, such as slowing or proceeding into a gap. The authors combine behavior cloning with **model-based generative adversarial imitation learning** (MGAIL). A discriminator learns to distinguish expert states from states visited by the policy. The policy learns to visit states the discriminator recognizes as expert-like. Differentiable dynamics let a gradient from a later state reach the earlier action that helped produce it. [Bronstein et al., §IV.C–D](https://arxiv.org/pdf/2210.09539#page=3)
+
+Table II compares logged and alternate routes from the same starting scenes. For the route-conditioned MGAIL plus cloning policy, success declined from **97.05% on logged routes to 89.65% on novel routes**. Success required staying on the route and road while avoiding any collision during the segment. Route-conditioned cloning alone achieved 92.22% and 80.34%, respectively. Neighboring vehicles followed their recorded motions in this comparison. Some alternate routes require others to respond, so the reported failure combines shortcomings of the policy and limitations of traffic playback. [Bronstein et al., §V.B and Table II](https://arxiv.org/pdf/2210.09539#page=7)
+
+**Interview drill. How could a model follow the logged route without learning to read its instructions?** If nearly every approach from one lane turns right, the lane itself predicts the target. Test paired feasible route commands from an identical initial scene, replay the same traffic randomness and record route adherence, progress and collision rate for each command. Repeat with reactive traffic. A model whose actions barely change when the command changes is a weak candidate for steerable planning, even if it imitates most logged turns.
+
+## EMMA and generating waypoints from camera images {#ml-emma}
+
+Hwang et al. (2024) ask a multimodal language model to turn camera images, ego history and a navigation instruction into future waypoint coordinates written as text. A different prompt asks for 3D objects or the road graph. All three tasks can therefore train the same model through next-token prediction. A research question follows from that choice. Generating a valid sequence of digits is easy to score, but a one-digit error can correspond to very different distances depending on the digit's place. Decode the coordinates and assess the physical path. [EMMA, §§2–3](https://arxiv.org/html/2410.23262v1)
+
+In Table 1, EMMA's 5-second ADE is 0.681 m and the internally pretrained EMMA+ reaches 0.610 m. At eight seconds EMMA+ gets 1.553 m and the enhanced Wayformer baseline gets 1.517 m. The ordering depends on the horizon, and the systems have different input information. These are errors against logged trajectories. To evaluate the case for an image-to-action planner, also measure what happens when it must correct a trajectory after a small error. [EMMA, Table 1 and Fig. 3](https://arxiv.org/html/2410.23262v1#S3.SS1)
+
+**Interview drill. How could ego history conceal a model that barely looks at the image?** Keep the same ego history and route, then vary a relevant visual cue in paired, physically plausible scenes. Measure braking onset and position at the crossing, and compare with an ego-history-only baseline. Audit cases where a red light is visible but the recent motion still looks like steady cruising.

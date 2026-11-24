@@ -1,0 +1,65 @@
+# Choosing Evaluation Metrics {#ml-metrics .ml-prep}
+
+Before naming a metric, say **what decision the score will support, what one test example is, and what information is available at prediction time**. Comparing forecasts of a recorded path, choosing between two planners and validating a simulator require different evidence.
+
+[Trajectory error](#ml-metric-distance) · [Confidence experiment](#ml-confidence-experiment) · [Probabilistic scores](#ml-metric-probability) · [Metric selection](#ml-metric-choice) · [Simulator realism](#ml-sim-agents-metrics) · [Uncertainty](#ml-metric-uncertainty)
+
+## Forecast distance, coverage and confidence {#ml-metric-distance}
+
+At valid future step \(t\), the Euclidean error in metres for candidate \(k\) is \(d_{k,t}=\|\hat y_{k,t}-y_t\|_2\). Average displacement error (ADE) averages these distances along a path. Final displacement error (FDE) uses its final evaluation step. With \(K\) candidates, \(\mathrm{minADE}_K=\min_k \tfrac1T\sum_t d_{k,t}\) and \(\mathrm{minFDE}_K=\min_k d_{k,T}\). Select a whole trajectory when taking the minimum. For a joint forecast, average over the relevant agents and times **inside** each scene hypothesis first. Mixing the best future for each agent can assemble a combination the model never generated. [Ettinger et al., §4](https://arxiv.org/pdf/2104.10133)
+
+**Work it by hand.** The recorded positions along a lane are 2 m and 4 m. Candidate A predicts \((2,7)\) and B predicts \((4,4)\). A's errors are \((0,3)\), so ADE is 1.5 m and FDE is 3 m. B's errors are \((2,0)\), so ADE is 1 m and FDE is 0 m. With both candidates available, minADE is 1 m and minFDE is 0 m. Taking the minimum separately at each time would give the fictitious perfect path \((2,4)\). If A has 99% of the predicted probability, best-of-two scores still look good. The most likely forecast misses the endpoint by 3 m.
+
+**Miss rate** counts examples for which every candidate fails the benchmark's match rule. Define the horizon and tolerances. For a classroom rule of final error greater than 1 m, our two-candidate example is a hit. Official benchmarks may compare longitudinal and lateral errors separately, vary thresholds by time and speed, and aggregate by category. **Mean average precision (mAP)** uses confidence-ranked candidates. Precision is the fraction of accepted predictions that match, recall the fraction of targets matched. Average precision summarizes the precision–recall curve for a category, then mAP averages categories according to the benchmark. Matching, duplicate handling and the averaging scheme affect comparisons. Hold \(K\), dataset version and split fixed. [Motion benchmark matching and mAP](https://arxiv.org/pdf/2104.10133)
+
+### A confidence experiment {#ml-confidence-experiment}
+
+The recorded driver **yielded**. One candidate predicts yield exactly and the other predicts an endpoint 4 m away. Both paths are always available. Before moving the slider, predict which scores will change when the model assigns yield only 10% probability.
+
+<form class="ml-score-lab" onsubmit="return false" oninput="const p = Number(this.elements.prob.value) / 100; this.elements.pct.value = Math.round(100 * p) + '%'; this.elements.logloss.value = (-Math.log(p)).toFixed(3); this.elements.brier.value = ((1-p)*(1-p)).toFixed(3); this.elements.toperr.value = (p >= 0.5 ? 0 : 4) + ' m';">
+<label for="ml-prob">Predicted probability of yield</label>
+<div class="ml-range"><input id="ml-prob" name="prob" type="range" min="1" max="99" value="80" step="1"><output name="pct" for="ml-prob">80%</output></div>
+<div class="ml-readouts">
+<div>Best-of-two FDE <strong>0 m</strong></div>
+<div>Top-ranked FDE <strong><output name="toperr" for="ml-prob">0 m</output></strong></div>
+<div>Log loss <strong><output name="logloss" for="ml-prob">0.223</output></strong></div>
+<div>Binary Brier score <strong><output name="brier" for="ml-prob">0.040</output></strong></div>
+</div>
+</form>
+
+At 10%, the best-of-two FDE stays 0 m, the top-ranked FDE becomes 4 m, log loss becomes 2.303, and the binary Brier score becomes 0.810. The toy breaks a 50/50 tie in favor of yield. A low oracle error shows that a good candidate exists. To test whether a planner can find it, evaluate its ranking and its actual selection.
+
+## Score a distribution {#ml-metric-probability}
+
+- **Negative log-likelihood (NLL), lower is better.** For a discrete event score \(-\log p(y)\). For continuous coordinates, score the log *density* under a specified distribution with a specified frame, scale and covariance. Comparing metre-space densities to centimetre-space densities changes the reported number. Token log loss also depends on the vocabulary and temporal resolution.
+- **Binary Brier score and calibration.** With predicted event probability \(p\) and outcome \(y\in\{0,1\}\), the Brier score is \((p-y)^2\), averaged over examples. For cases receiving probabilities near 0.2, did the event occur about 20% of the time? A reliability diagram compares mean predicted probability with observed frequency within bins. Include bin counts and uncertainty. Predicting the overall event frequency for everyone can be calibrated but uninformative. Also evaluate ranking and scenario-specific behavior. [Guo et al., calibration and reliability diagrams](https://proceedings.mlr.press/v70/guo17a.html)
+- **Energy score for samples, lower is better.** Represent an entire trajectory as a vector. For independent draws \(X,X'\) from the forecast and observed path \(y\), use \(\mathbb E\|X-y\|-\tfrac12\mathbb E\|X-X'\|\). The first term measures proximity to observations. The second accounts for the spread of the forecast. Average the first term over samples and the second over distinct independent sample pairs. Under appropriate conditions the true distribution minimizes the expected score. With finite samples also inspect missed maneuvers and interaction-specific features. [Shahroudi et al., trajectory distribution evaluation](https://proceedings.mlr.press/v235/shahroudi24a.html)
+
+## Match the evaluation to the experiment {#ml-metric-choice}
+
+| Decision | Primary evidence | Companion measurements and failure to watch |
+|:--|:--|:--|
+| Select a multimodal forecaster | Fixed-\(K\) minADE/minFDE, miss rate, confidence-ranked mAP | NLL or energy score, calibration by maneuver, joint overlap and p95 inference time. A wider spread can improve oracle coverage. |
+| Choose an ego planner | Closed-loop route success, collision events per scenario and per unit distance | Route progress, road departures, traffic violations, acceleration and upper-percentile jerk. A stationary policy avoids many events. |
+| Compare RL training runs | Mean episodic return with uncertainty across seeds and scenarios | Success, violation and failure rates, sample budget and learning curves. Reward scales must agree. |
+| Validate traffic behavior | Likelihood or divergence of kinematic, interaction and map features | Paired brake/yield response and policy-ranking agreement. A feature histogram omits timing and causality. |
+| Validate sensor simulation | Task-level performance or behavior change on matched real/synthetic scenes | Visual alignment, temporal consistency and action sensitivity. Image or video similarity alone can hide the disappearance of a small road user. |
+| Decide whether extra compute pays | Improvement at equal training compute or equal inference latency | Batch-one p50/p95, hardware, sequence length, sample count and memory. Large offline batches can hide a missed control deadline. |
+
+**Open-loop and closed-loop.** In open loop, compare model outputs to recorded futures from fixed histories. This is cheap and repeatable. In closed loop, execute an action and let its consequences influence the next input. Report whether other agents replay logs, use rules or run learned policies. A high replay collision count can reflect other drivers failing to respond. Excessively accommodating traffic can conceal aggressive planning. Use matched initial conditions and several traffic configurations. [Gulino et al., Table 5](https://arxiv.org/pdf/2310.08710#page=9)
+
+**Comfort and exposure.** Jerk is the change in acceleration per second, measured in \(\mathrm{m/s^3}\). Time to collision under constant closing speed is gap divided by closing speed for aligned paths. A 12 m gap closing at 4 m/s gives 3 s. When there is no closing motion, this longitudinal formula gives no finite impending collision. For crossing paths, model footprints and their arrival times. Specify whether a collision involving several frames counts as one event, when an episode terminates and how far policies actually travel. Ten events in 10,000 km and two in 200 km correspond to 1 and 10 events per 1,000 km. Raw counts reverse the comparison.
+
+## Evaluate realism when many futures are valid {#ml-sim-agents-metrics}
+
+Montali et al. propose comparing the **distribution of simulated features** with real observations. In the 2023 protocol, draw 32 rollouts per scene and use their feature distributions to estimate the likelihood of the logged measurements. Features describe kinematics such as acceleration, interactions such as nearest-object distance and collisions, and agreement with the map. A simulator that produces one excellent path among many poor ones can score well on minADE and still assign low likelihood to ordinary traffic behavior. The component scores reveal which type of behavior changed. A collision likelihood score measures agreement with observed collision behavior. The raw fraction of episodes with a collision answers a separate question. [Sim agents benchmark, §§3–4](https://arxiv.org/pdf/2305.12032)
+
+An aggregate can also miss a simulator that always yields half a second too late. Plot the distribution of reaction delays given a lead-car brake event, and test whether policy rankings are stable across traffic models. A model's marginal speed histogram could match real traffic perfectly even if it shuffled speeds among the wrong cars.
+
+## Decide whether a difference is convincing {#ml-metric-uncertainty}
+
+Evaluate competing policies on the same initial scenes. For each scene, compute the difference in outcomes, averaging repeated stochastic rollouts within that scene when appropriate. For a **paired bootstrap**, resample scene indices with replacement, retain both policies' results for every draw, and recompute the mean difference. The 2.5th and 97.5th percentiles of many resampled differences give an approximate 95% interval. Resample at the drive level if many overlapping scenes came from a single drive. Independent training seeds quantify another source of variation.
+
+**Rare events.** For zero events among \(n\) independent equally exposed trials, a one-sided 95% upper bound on a common event probability is \(1-0.05^{1/n}\), approximately \(3/n\). Zero in 100 trials still permits a rate near 3%. Frames from a single encounter are strongly correlated. An enriched hard-case suite can reveal failure modes quickly, but an estimate of fleet-wide incidence also needs representative exposure or justified reweighting.
+
+**Interview decision.** A new planner reduces mean collision rate but cuts progress at intersections. Before choosing it, examine collision and progress jointly on matched scenes, vary the assertiveness setting, and compare collision rates at equivalent progress. Inspect confidence intervals and rare classes. This distinguishes a better tradeoff from moving to a more cautious point on the same tradeoff curve.
